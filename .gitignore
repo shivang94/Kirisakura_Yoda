@@ -84,6 +84,11 @@ include/config
 include/generated
 arch/*/include/generated
 
+#
+# Output folder for kernel building
+#
+out/
+
 # stgit generated dirs
 patches-*
 
