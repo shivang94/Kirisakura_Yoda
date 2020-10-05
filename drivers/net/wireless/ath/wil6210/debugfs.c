@@ -2997,7 +2997,7 @@ static const struct {
 	{"console_dump_fw", 	0444,	&fops_console_dump_fw}, //imran
 	{"console_dump_uc",     0444,   &fops_console_dump_uc}, //imran
 	{"sweep_dump", 		0444,   &fops_sweep_dump},			//imran
-	{"sweep_dump_cur", 	0444,   &fops_sweep_dump_cur}		//imran
+	{"sweep_dump_cur", 	0444,   &fops_sweep_dump_cur},		//imran
 	{"compressed_rx_status", 0644,	&fops_compressed_rx_status},
 	{"srings",	0444,		&fops_srings},
 	{"status_msg",	0444,		&fops_status_msg},
