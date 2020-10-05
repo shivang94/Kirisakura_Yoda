@@ -25,6 +25,8 @@
 #include "wmi.h"
 #include "txrx.h"
 #include "pmc.h"
+#include "sweep_info.h" //SEEMO
+
 
 /* Nasty hack. Better have per device instances */
 static u32 mem_addr;
@@ -49,6 +51,22 @@ struct dbg_off {
 	ulong off;
 	enum dbg_off_type type;
 };
+
+/* BEGIN SEEMOO ADDITIONS BY D. Wegemer and D. Steinmetzer*/
+#define MY_MAX_SECTOR 34
+#define MY_SECTOR_TABLE_SIZE 16
+#define SWEEP_DUMP_SIZE 256
+
+#define MY_CONSOLE_MAX_LEN 8192
+u8 my_console_fw[MY_CONSOLE_MAX_LEN];
+u8 my_console_uc[MY_CONSOLE_MAX_LEN];
+u32 my_console_fw_len;
+u32 my_console_uc_len;
+#define MY_CONSOLE_BASE_PTR_FW 0x8ffff0
+#define MY_CONSOLE_BASE_PTR_UC 0x93cff0
+
+struct wil6210_priv *my_glob_wil = NULL;
+// END SEEMOO ADDITIONS
 
 static void wil_print_desc_edma(struct seq_file *s, struct wil6210_priv *wil,
 				struct wil_ring *ring,
@@ -2426,6 +2444,208 @@ static const struct file_operations fops_suspend_stats = {
 	.open  = simple_open,
 };
 
+/*---------console dump---------*/
+int
+console_dump_open_fw(struct inode *inode, struct file *file) {
+    u32 console_ptr = 0;
+    //printk(KERN_CRIT "console_dump_open_fw() ENTER, wil: 0x%x\n", (unsigned int) my_glob_wil);
+    printk(KERN_CRIT "console_dump_open_fw() ENTER\n");
+    if(my_glob_wil != NULL) {
+      if(test_bit(WMI_FW_CAPABILITY_MOD_FW, my_glob_wil->fw_capabilities)) {
+            wil_memcpy_fromio_32(&console_ptr, (void * __force)my_glob_wil->csr + HOSTADDR(MY_CONSOLE_BASE_PTR_FW), 4);
+            wil_memcpy_fromio_32(&my_console_fw_len, (void * __force)my_glob_wil->csr + HOSTADDR(MY_CONSOLE_BASE_PTR_FW+4), 4);
+            if(my_console_fw_len < MY_CONSOLE_MAX_LEN) {
+                printk(KERN_CRIT "console_dump_open_fw() my_console_fw_len %d\n", (unsigned int)  my_console_fw_len);
+            } else {
+                printk(KERN_CRIT "console len too big!\n");
+                return -1;
+            }
+            if(console_ptr != 0) {
+                wil_memcpy_fromio_32(my_console_fw, (void * __force)my_glob_wil->csr + HOSTADDR(console_ptr), my_console_fw_len);
+            }
+        } else {
+        	printk(KERN_CRIT "console_dump_open_fw() capabilities bit not set!\n");
+            return -1;
+        }
+    } else {
+        return -1;
+    }
+	
+    // 0x8f4ff4 -> Buf = 0x8f5460
+    return 0;
+}
+ssize_t
+console_dump_read_fw(struct file *filp, char *buffer, size_t length, loff_t *offset) {
+	ssize_t ret;
+	ret = simple_read_from_buffer(buffer, length, offset, my_console_fw, my_console_fw_len);
+	return ret;
+}
+static const struct file_operations fops_console_dump_fw = {
+    .open       = console_dump_open_fw,
+    .read       = console_dump_read_fw,
+};
+int
+console_dump_open_uc(struct inode *inode, struct file *file) {
+   u32 console_ptr = 0;
+   //printk(KERN_CRIT "console_dump_open_uc() ENTER, wil: 0x%x\n", (unsigned int) my_glob_wil);
+   printk(KERN_CRIT "console_dump_open_uc() ENTER\n");
+    if(my_glob_wil != NULL) {
+       if(test_bit(WMI_FW_CAPABILITY_MOD_FW, my_glob_wil->fw_capabilities)) {
+            wil_memcpy_fromio_32(&console_ptr, (void * __force)my_glob_wil->csr + HOSTADDR(MY_CONSOLE_BASE_PTR_UC), 4);
+            wil_memcpy_fromio_32(&my_console_uc_len, (void * __force)my_glob_wil->csr + HOSTADDR(MY_CONSOLE_BASE_PTR_UC+4), 4);
+            if(my_console_uc_len < MY_CONSOLE_MAX_LEN) {
+                printk(KERN_CRIT "console_dump_open_uc() console_ptr: 0x%x, my_console_uc_len %d\n", console_ptr, (unsigned int) my_console_uc_len);
+            } else {
+                 printk(KERN_CRIT "console len too big!\n");
+                return -1;
+            }
+            if(console_ptr != 0) {
+                wil_memcpy_fromio_32(my_console_uc, (void * __force)my_glob_wil->csr + HOSTADDR(console_ptr), my_console_uc_len);
+            }
+        } else {
+        	printk(KERN_CRIT "console_dump_open_uc() capabilities bit not set!\n");
+            return -1;
+        }
+    } else {
+        return -1;
+    }
+	
+    return 0;
+}
+ssize_t
+console_dump_read_uc(struct file *filp, char *buffer, size_t length, loff_t *offset) {
+    ssize_t ret;
+    ret = simple_read_from_buffer(buffer, length, offset, my_console_uc, my_console_uc_len);
+    return ret;
+}
+static const struct file_operations fops_console_dump_uc = {
+    .open       = console_dump_open_uc,
+    .read       = console_dump_read_uc,
+};
+/*---------SEEMO sweep dump---------*/
+static int
+sweep_dump_show(struct seq_file *s, void *data) {
+	u32 i, p, swp_direction, swp_cdown, swp_sector;
+	sweep_dump_t sweep_dump;
+	sector_info_t feedback_info;
+	int snr_qdb, snr_db;
+	if(my_glob_wil != NULL) {
+		if(test_bit(WMI_FW_CAPABILITY_MOD_FW, my_glob_wil->fw_capabilities)) {
+			
+			// Copy the Sweep Dump
+            wil_memcpy_fromio_32((void *) &sweep_dump, (void * __force)my_glob_wil->csr + HOSTADDR(PTR_MEM_SWEEP_DUMP), sizeof(sweep_dump_t));
+	
+			seq_printf(s, "Counter: %d swps, %d pkts\n", 
+				sweep_dump.ctr_swps,  sweep_dump.ctr_pkts);
+			
+			seq_printf(s, "Sector Sweep Dump: {\n");
+
+			// Iterate over all members in sweep dump
+			for(i=0; i < SWEEP_DUMP_SIZE; i++) {
+				p = (sweep_dump.cur_pos + i) % SWEEP_DUMP_SIZE;
+				
+				/* snr_qdb = sweep_dump.dump[p].snr;
+				if (snr_qdb > 0xFF){
+					snr_qdb -= 0x200;
+				}
+				
+				// Determine the SNR in dB
+				snr_db = (snr_qdb + 2) >> 2;					
+				seq_printf(s, "  [sec: %2d rssi: %7d snr: %3d qdB (%2d dB) src: %02x:%02x:%02x:%02x:%02x:%02x]\n", 
+					sweep_dump.dump[p].sector_id, sweep_dump.dump[p].rssi, snr_qdb, snr_db,
+					sweep_dump.dump[p].macaddr[0], sweep_dump.dump[p].macaddr[1], sweep_dump.dump[p].macaddr[2],
+					sweep_dump.dump[p].macaddr[3], sweep_dump.dump[p].macaddr[4], sweep_dump.dump[p].macaddr[5] );
+							*/
+				swp_direction = sweep_dump.dump[p].swp[0] & 0x01;
+				swp_cdown = (sweep_dump.dump[p].swp[0] >> 1) + ((sweep_dump.dump[p].swp[1] & 0x03) << 7);
+				swp_sector = (sweep_dump.dump[p].swp[1] >> 2) + ((sweep_dump.dump[p].swp[2] & 0x03) << 6);
+				
+				seq_printf(s, " [%4d src: %02x:%02x:%02x:%02x:%02x:%02x sec: %3d cdown: %3d dir: %1d snr: %3d.%02d dB (0x%04x)]\n",
+					sweep_dump.dump[p].ctr,
+					sweep_dump.dump[p].src[0], sweep_dump.dump[p].src[1], sweep_dump.dump[p].src[2],
+					sweep_dump.dump[p].src[3], sweep_dump.dump[p].src[4], sweep_dump.dump[p].src[5],
+					swp_sector, swp_cdown, swp_direction, sweep_dump.dump[p].snr >> 4,
+					((sweep_dump.dump[p].snr & 0xf) * 100 + 8) >> 4, sweep_dump.dump[p].snr);
+			}
+			seq_printf(s, "}\n");
+        	} else {
+            		return -1;
+        	}
+    	} else {
+        	return -1;
+    	}
+    	return 0;
+}
+static int
+sweep_dump_open(struct inode *inode, struct file *file) {
+    return single_open(file, sweep_dump_show, inode->i_private);
+}
+static const struct file_operations fops_sweep_dump = {
+    	.open       	= sweep_dump_open,
+	.release	= single_release,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+};
+static int
+sweep_dump_cur_show(struct seq_file *s, void *data) {
+        u32 i, p, j;
+        sweep_dump_t sweep_dump;
+        sector_info_t feedback_info;
+        int snr_qdb, snr_db;
+        if(my_glob_wil != NULL) {
+                if(test_bit(WMI_FW_CAPABILITY_MOD_FW, my_glob_wil->fw_capabilities)) {
+
+                        // Copy the Sweep Dump
+                        wil_memcpy_fromio_32((void *) &sweep_dump, (void * __force)my_glob_wil->csr + HOSTADDR(PTR_MEM_SWEEP_DUMP), sizeof(sweep_dump_t));
+
+                        seq_printf(s, "Counter: %d swps, %d pkts\n",
+                                sweep_dump.ctr_swps,  sweep_dump.ctr_pkts);
+
+                        seq_printf(s, "Sector Sweep Dump: {\n");
+
+			// Find the most actual sweep packets
+			/*j = sweep_dump.cur_pos - 1;	
+			for(i=1; i < SWEEP_DUMP_SIZE; i++) {
+				p = (sweep_dump.cur_pos - i - 1) % SWEEP_DUMP_SIZE;
+				if (sweep_dump.dump[p].sector_id > sweep_dump.dump[(p+1) % SWEEP_DUMP_SIZE].sector_id)
+					break;
+			}
+			while (p != (sweep_dump.cur_pos - 1) % SWEEP_DUMP_SIZE) {
+				p = (p + 1) % SWEEP_DUMP_SIZE;
+                                snr_qdb = sweep_dump.dump[p].snr;
+				if (snr_qdb > 0xFF){
+                                        snr_qdb -= 0x200;
+                                }
+                                // Determine the SNR in dB
+                                snr_db = (snr_qdb + 2) >> 2;
+
+				seq_printf(s, "  [sec: %2d rssi: %7d snr: %3d qdB (%2d dB) src: %02x:%02x:%02x:%02x:%02x:%02x]\n",
+                                        sweep_dump.dump[p].sector_id, sweep_dump.dump[p].rssi, snr_qdb, snr_db,
+                                        sweep_dump.dump[p].macaddr[0], sweep_dump.dump[p].macaddr[1], sweep_dump.dump[p].macaddr[2],
+                                        sweep_dump.dump[p].macaddr[3], sweep_dump.dump[p].macaddr[4], sweep_dump.dump[p].macaddr[5] );
+
+			} */
+                        seq_printf(s, "}\n");
+                } else {
+                        return -1;
+                }
+        } else {
+                return -1;
+        }
+        return 0;
+}
+static int
+sweep_dump_cur_open(struct inode *inode, struct file *file) {
+    return single_open(file, sweep_dump_cur_show, inode->i_private);
+}
+static const struct file_operations fops_sweep_dump_cur = {
+    .open       = sweep_dump_cur_open,
+	.release	= single_release,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+};
+///SEEMO
+ 
 /*---------compressed_rx_status---------*/
 static ssize_t wil_compressed_rx_status_write(struct file *file,
 					      const char __user *buf,
@@ -2774,6 +2994,10 @@ static const struct {
 	{"fw_capabilities",	0444,	&fops_fw_capabilities},
 	{"fw_version",	0444,		&fops_fw_version},
 	{"suspend_stats",	0644,	&fops_suspend_stats},
+	{"console_dump_fw", 	0444,	&fops_console_dump_fw}, //imran
+	{"console_dump_uc",     0444,   &fops_console_dump_uc}, //imran
+	{"sweep_dump", 		0444,   &fops_sweep_dump},			//imran
+	{"sweep_dump_cur", 	0444,   &fops_sweep_dump_cur},		//imran
 	{"compressed_rx_status", 0644,	&fops_compressed_rx_status},
 	{"srings",	0444,		&fops_srings},
 	{"status_msg",	0444,		&fops_status_msg},
@@ -2867,6 +3091,9 @@ int wil6210_debugfs_init(struct wil6210_priv *wil)
 {
 	struct dentry *dbg = wil->debug = debugfs_create_dir(WIL_NAME,
 			wil_to_wiphy(wil)->debugfsdir);
+
+	/* SEEMO DWegemer */
+	my_glob_wil = wil;
 
 	if (IS_ERR_OR_NULL(dbg))
 		return -ENODEV;
