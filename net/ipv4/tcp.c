@@ -408,7 +408,7 @@ static u64 tcp_compute_delivery_rate(const struct tcp_sock *tp)
 	}
 	return rate64;
 }
-
+/*imran
 const struct tcp_sock_ops tcp_specific = {
 	.__select_window		= __tcp_select_window,
 	.select_window			= tcp_select_window,
@@ -426,7 +426,7 @@ const struct tcp_sock_ops tcp_specific = {
 	.cleanup_rbuf			= tcp_cleanup_rbuf,
 	.set_cong_ctrl			= __tcp_set_congestion_control,
 };
-
+*/
 /* Address-family independent initialization for a tcp_sock.
  *
  * NOTE: A lot of things set to zero explicitly by call to
