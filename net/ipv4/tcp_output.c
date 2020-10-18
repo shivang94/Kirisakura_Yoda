@@ -36,6 +36,12 @@
 
 #define pr_fmt(fmt) "TCP: " fmt
 
+#include <net/mptcp.h>
+#include <net/mptcp_v4.h>
+#if IS_ENABLED(CONFIG_IPV6)
+#include <net/mptcp_v6.h>
+#endif
+#include <net/ipv6.h>
 #include <net/tcp.h>
 
 #include <linux/compiler.h>
