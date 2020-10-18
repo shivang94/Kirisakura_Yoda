@@ -190,6 +190,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
 #define TCPOPT_SACK             5       /* SACK Block */
 #define TCPOPT_TIMESTAMP	8	/* Better RTT estimations/PAWS */
 #define TCPOPT_MD5SIG		19	/* MD5 Signature (RFC2385) */
+#define TCPOPT_MPTCP		30
 #define TCPOPT_FASTOPEN		34	/* Fast open (RFC7413) */
 #define TCPOPT_EXP		254	/* Experimental */
 /* Magic number to be after the option value for sharing TCP
@@ -825,6 +826,12 @@ struct tcp_skb_cb {
 		 */
 		ktime_t		swtstamp;
 	};
+
+#ifdef CONFIG_MPTCP
+	__u8		mptcp_flags;	/* flags for the MPTCP layer    */
+	__u8		dss_off;	/* Number of 4-byte words until
+					 * seq-number */
+#endif
 	__u8		tcp_flags;	/* TCP header flags. (tcp[13])	*/
 
 	__u8		sacked;		/* State flags for SACK/FACK.	*/
@@ -843,6 +850,14 @@ struct tcp_skb_cb {
 			has_rxtstamp:1,	/* SKB has a RX timestamp	*/
 			unused:5;
 	__u32		ack_seq;	/* Sequence number ACK'd	*/
+
+#ifdef CONFIG_MPTCP
+	union {			/* For MPTCP outgoing frames */
+		__u32 path_mask; /* paths that tried to send this skb */
+		__u32 dss[6];	/* DSS options */
+	};
+#endif
+
 	union {
 		struct {
 #define TCPCB_DELIVERED_CE_MASK ((1U<<20) - 1)
@@ -1392,6 +1407,19 @@ static inline int tcp_win_from_space(int space)
 		(space>>(-tcp_adv_win_scale)) :
 		space - (space>>tcp_adv_win_scale);
 }
+
+#ifdef CONFIG_MPTCP
+extern struct static_key mptcp_static_key;
+static inline bool mptcp(const struct tcp_sock *tp)
+{
+	return static_key_false(&mptcp_static_key) && tp->mpc;
+}
+#else
+static inline bool mptcp(const struct tcp_sock *tp)
+{
+	return 0;
+}
+#endif
 
 /* Note: caller must be prepared to deal with negative returns */
 static inline int tcp_space(const struct sock *sk)

@@ -273,6 +273,7 @@
 
 #include <net/icmp.h>
 #include <net/inet_common.h>
+#include <net/mptcp.h>
 #include <net/tcp.h>
 #include <net/xfrm.h>
 #include <net/ip.h>
@@ -407,6 +408,24 @@ static u64 tcp_compute_delivery_rate(const struct tcp_sock *tp)
 	}
 	return rate64;
 }
+
+const struct tcp_sock_ops tcp_specific = {
+	.__select_window		= __tcp_select_window,
+	.select_window			= tcp_select_window,
+	.select_initial_window		= tcp_select_initial_window,
+	.select_size			= select_size,
+	.init_buffer_space		= tcp_init_buffer_space,
+	.set_rto			= tcp_set_rto,
+	.should_expand_sndbuf		= tcp_should_expand_sndbuf,
+	.send_fin			= tcp_send_fin,
+	.write_xmit			= tcp_write_xmit,
+	.send_active_reset		= tcp_send_active_reset,
+	.write_wakeup			= tcp_write_wakeup,
+	.retransmit_timer		= tcp_retransmit_timer,
+	.time_wait			= tcp_time_wait,
+	.cleanup_rbuf			= tcp_cleanup_rbuf,
+	.set_cong_ctrl			= __tcp_set_congestion_control,
+};
 
 /* Address-family independent initialization for a tcp_sock.
  *
