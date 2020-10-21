@@ -1822,7 +1822,9 @@ static inline void tcp_init_send_head(struct sock *sk)
 	sk->sk_send_head = NULL;
 }
 
+void tcp_write_queue_purge(struct sock *sk);
 /* write queue abstraction */
+/*imran
 static inline void tcp_write_queue_purge(struct sock *sk)
 {
 	struct sk_buff *skb;
@@ -1836,7 +1838,7 @@ static inline void tcp_write_queue_purge(struct sock *sk)
 	tcp_sk(sk)->packets_out = 0;
 	inet_csk(sk)->icsk_backoff = 0;
 }
-
+*/
 static inline struct sk_buff *tcp_write_queue_head(const struct sock *sk)
 {
 	return skb_peek(&sk->sk_write_queue);

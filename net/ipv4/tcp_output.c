@@ -83,11 +83,12 @@ void tcp_mstamp_refresh(struct tcp_sock *tp)
 		tp->tcp_mstamp = val;
 }
 
+/*imran
 static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 			   int push_one, gfp_t gfp);
-
+*/
 /* Account for new data that has been sent to the network. */
-static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
+void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct tcp_sock *tp = tcp_sk(sk);
@@ -449,17 +450,17 @@ bool tcp_urg_mode(const struct tcp_sock *tp)
 #define OPTION_WSCALE		(1 << 3)
 #define OPTION_FAST_OPEN_COOKIE	(1 << 8)
 
-struct tcp_out_options {
-	u16 options;		/* bit field of OPTION_* */
-	u16 mss;		/* 0 to disable */
-	u8 ws;			/* window scale, 0 to disable */
-	u8 num_sack_blocks;	/* number of SACK blocks to include */
-	u8 hash_size;		/* bytes in hash_location */
-	__u8 *hash_location;	/* temporary pointer, overloaded */
-	__u32 tsval, tsecr;	/* need to include OPTION_TS */
-	struct tcp_fastopen_cookie *fastopen_cookie;	/* Fast open cookie */
-};
-
+//struct tcp_out_options {
+//	u16 options;		/* bit field of OPTION_* */
+//	u16 mss;		/* 0 to disable */
+//	u8 ws;			/* window scale, 0 to disable */
+//	u8 num_sack_blocks;	/* number of SACK blocks to include */
+//	u8 hash_size;		/* bytes in hash_location */
+//	__u8 *hash_location;	/* temporary pointer, overloaded */
+//	__u32 tsval, tsecr;	/* need to include OPTION_TS */
+//	struct tcp_fastopen_cookie *fastopen_cookie;	/* Fast open cookie */
+//};
+/*/
 /* Write previously computed TCP options to the packet.
  *
  * Beware: Something in the Internet is very sensitive to the ordering of
@@ -700,6 +701,9 @@ static unsigned int tcp_synack_options(struct request_sock *req,
 		}
 	}
 
+	if (ireq->saw_mpc)
+		mptcp_synack_options(req, opts, &remaining);
+
 	return MAX_TCP_OPTION_SPACE - remaining;
 }
 
@@ -868,7 +872,7 @@ void tcp_release_cb(struct sock *sk)
 		nflags = flags & ~TCP_DEFERRED_ALL;
 	} while (cmpxchg(&sk->sk_tsq_flags, flags, nflags) != flags);
 
-	if (flags & TCPF_TSQ_DEFERRED)
+	if (flags & TCPF_TSQ_DEFERRED){
 		tcp_tsq_handler(sk);
 		if (mptcp(tcp_sk(sk)))
 			tcp_tsq_handler(mptcp_meta_sk(sk));
@@ -1128,7 +1132,7 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
 		}
 	}
 
-	tcp_options_write((__be32 *)(th + 1), tp, &opts);
+	tcp_options_write((__be32 *)(th + 1), tp, &opts, skb);
 	skb_shinfo(skb)->gso_type = sk->sk_gso_type;
 	if (likely(!(tcb->tcp_flags & TCPHDR_SYN))) {
 		th->window      = htons(tcp_select_window(sk));
@@ -1401,13 +1405,13 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
 			tcp_adjust_pcount(sk, skb, diff);
 
 		/* Set buff tx.in_flight as if buff were sent by itself. */
-		inflight_prev = TCP_SKB_CB(skb)->tx.in_flight - old_factor;
-		if (WARN_ONCE(inflight_prev < 0,
-			      "inconsistent: tx.in_flight: %u old_factor: %d",
-			      TCP_SKB_CB(skb)->tx.in_flight, old_factor))
-			inflight_prev = 0;
-		TCP_SKB_CB(buff)->tx.in_flight = inflight_prev +
-						 tcp_skb_pcount(buff);
+		//inflight_prev = TCP_SKB_CB(skb)->tx.in_flight - old_factor;
+		//if (WARN_ONCE(inflight_prev < 0,
+			      //"inconsistent: tx.in_flight: %u old_factor: %d",
+			      //TCP_SKB_CB(skb)->tx.in_flight, old_factor))
+			//inflight_prev = 0;
+		//TCP_SKB_CB(buff)->tx.in_flight = inflight_prev +
+			//			 tcp_skb_pcount(buff);
 	}
 
 	/* Link BUFF into the send queue. */
@@ -2633,8 +2637,6 @@ void tcp_send_loss_probe(struct sock *sk)
 		goto rearm_timer;
 
 	tp->tlp_retrans = 1;
-
-probe_sent:
 	/* Record snd_nxt for loss detection. */
 	tp->tlp_high_seq = tp->snd_nxt;
 
@@ -3368,7 +3370,7 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 
 	/* RFC1323: The window in SYN & SYN/ACK segments is never scaled. */
 	th->window = htons(min(req->rsk_rcv_wnd, 65535U));
-	tcp_options_write((__be32 *)(th + 1), NULL, &opts);
+	tcp_options_write((__be32 *)(th + 1), NULL, &opts, skb);
 	th->doff = (tcp_header_size >> 2);
 	__TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
 
