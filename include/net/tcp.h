@@ -711,10 +711,17 @@ bool tcp_schedule_loss_probe(struct sock *sk, bool advancing_rto);
 void tcp_skb_collapse_tstamp(struct sk_buff *skb,
 			     const struct sk_buff *next_skb);
 
+u16 tcp_select_window(struct sock *sk);
+int select_size(const struct sock *sk, bool sg, bool first_skb);
+bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+		int push_one, gfp_t gfp);
+
 /* tcp_input.c */
 void tcp_rearm_rto(struct sock *sk);
 void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req);
 void tcp_reset(struct sock *sk);
+void tcp_set_rto(struct sock *sk);
+bool tcp_should_expand_sndbuf(const struct sock *sk);
 void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb);
 void tcp_fin(struct sock *sk);
 
@@ -1211,6 +1218,8 @@ void tcp_get_allowed_congestion_control(char *buf, size_t len);
 int tcp_set_allowed_congestion_control(char *allowed);
 int tcp_set_congestion_control(struct sock *sk, const char *name, bool load,
 			       bool reinit, bool cap_net_admin);
+int __tcp_set_congestion_control(struct sock *sk, const char *name, bool load,
+				 bool reinit, bool cap_net_admin);
 u32 tcp_slow_start(struct tcp_sock *tp, u32 acked);
 void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked);
 
@@ -1513,7 +1522,8 @@ static inline void tcp_slow_start_after_idle_check(struct sock *sk)
 /* Determine a window scaling and initial window to offer. */
 void tcp_select_initial_window(int __space, __u32 mss, __u32 *rcv_wnd,
 			       __u32 *window_clamp, int wscale_ok,
-			       __u8 *rcv_wscale, __u32 init_rcv_wnd);
+			       __u8 *rcv_wscale, __u32 init_rcv_wnd,
+			       const struct sock *sk);
 
 static inline int tcp_win_from_space(int space)
 {
