@@ -375,6 +375,95 @@ extern struct proto tcp_prot;
 #define TCP_DEC_STATS(net, field)	SNMP_DEC_STATS((net)->mib.tcp_statistics, field)
 #define TCP_ADD_STATS(net, field, val)	SNMP_ADD_STATS((net)->mib.tcp_statistics, field, val)
 
+/**** START - Exports needed for MPTCP ****/
+extern const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops;
+extern const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops;
+
+struct mptcp_options_received;
+
+void tcp_cleanup_rbuf(struct sock *sk, int copied);
+int tcp_close_state(struct sock *sk);
+void tcp_minshall_update(struct tcp_sock *tp, unsigned int mss_now,
+			 const struct sk_buff *skb);
+int tcp_xmit_probe_skb(struct sock *sk, int urgent, int mib);
+void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb);
+int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+		     gfp_t gfp_mask);
+unsigned int tcp_mss_split_point(const struct sock *sk,
+				 const struct sk_buff *skb,
+				 unsigned int mss_now,
+				 unsigned int max_segs,
+				 int nonagle);
+bool tcp_nagle_test(const struct tcp_sock *tp, const struct sk_buff *skb,
+		    unsigned int cur_mss, int nonagle);
+bool tcp_snd_wnd_test(const struct tcp_sock *tp, const struct sk_buff *skb,
+		      unsigned int cur_mss);
+unsigned int tcp_cwnd_test(const struct tcp_sock *tp, const struct sk_buff *skb);
+int tcp_init_tso_segs(struct sk_buff *skb, unsigned int mss_now);
+int __pskb_trim_head(struct sk_buff *skb, int len);
+void tcp_queue_skb(struct sock *sk, struct sk_buff *skb);
+void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags);
+void tcp_reset(struct sock *sk);
+bool tcp_may_update_window(const struct tcp_sock *tp, const u32 ack,
+			   const u32 ack_seq, const u32 nwin);
+bool tcp_urg_mode(const struct tcp_sock *tp);
+void tcp_ack_probe(struct sock *sk);
+void tcp_rearm_rto(struct sock *sk);
+int tcp_write_timeout(struct sock *sk);
+bool retransmits_timed_out(struct sock *sk,
+			   unsigned int boundary,
+			   unsigned int timeout);
+void tcp_write_err(struct sock *sk);
+void tcp_adjust_pcount(struct sock *sk, const struct sk_buff *skb, int decr);
+void tcp_set_skb_tso_segs(struct sk_buff *skb, unsigned int mss_now);
+
+void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+			   struct request_sock *req);
+void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb);
+struct sock *tcp_v4_cookie_check(struct sock *sk, struct sk_buff *skb);
+void tcp_v4_reqsk_destructor(struct request_sock *req);
+
+void tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+			   struct request_sock *req);
+void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb);
+struct sock *tcp_v6_cookie_check(struct sock *sk, struct sk_buff *skb);
+int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb);
+int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len);
+void tcp_v6_destroy_sock(struct sock *sk);
+void inet6_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
+void tcp_v6_hash(struct sock *sk);
+struct sock *tcp_v6_hnd_req(struct sock *sk,struct sk_buff *skb);
+struct sock *tcp_v6_syn_recv_sock(const struct sock *sk, struct sk_buff *skb,
+				  struct request_sock *req,
+				  struct dst_entry *dst,
+				  struct request_sock *req_unhash,
+				  bool *own_req);
+void tcp_v6_reqsk_destructor(struct request_sock *req);
+
+unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
+				       int large_allowed);
+u32 tcp_tso_acked(struct sock *sk, struct sk_buff *skb);
+
+void skb_clone_fraglist(struct sk_buff *skb);
+void copy_skb_header(struct sk_buff *new, const struct sk_buff *old);
+
+void inet_twsk_free(struct inet_timewait_sock *tw);
+int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb);
+/* These states need RST on ABORT according to RFC793 */
+static inline bool tcp_need_reset(int state)
+{
+	return (1 << state) &
+	       (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT | TCPF_FIN_WAIT1 |
+		TCPF_FIN_WAIT2 | TCPF_SYN_RECV);
+}
+
+int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int hdrlen,
+			       bool *fragstolen);
+void tcp_ofo_queue(struct sock *sk);
+void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb);
+int linear_payload_sz(bool first_skb);
+/**** END - Exports needed for MPTCP ****/
+
 void tcp_tasklet_init(void);
 
 void tcp_v4_err(struct sk_buff *skb, u32);
