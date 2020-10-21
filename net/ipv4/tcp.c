@@ -2179,7 +2179,7 @@ static const unsigned char new_state[16] = {
   [TCP_NEW_SYN_RECV]	= TCP_CLOSE,	/* should not happen ! */
 };
 
-static int tcp_close_state(struct sock *sk)
+int tcp_close_state(struct sock *sk)
 {
 	int next = (int)new_state[sk->sk_state];
 	int ns = next & TCP_STATE_MASK;
@@ -2412,14 +2412,14 @@ out:
 EXPORT_SYMBOL(tcp_close);
 
 /* These states need RST on ABORT according to RFC793 */
-
+/*
 static inline bool tcp_need_reset(int state)
 {
 	return (1 << state) &
 	       (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT | TCPF_FIN_WAIT1 |
 		TCPF_FIN_WAIT2 | TCPF_SYN_RECV | TCPF_SYN_SENT);
 }
-
+*/
 int tcp_disconnect(struct sock *sk, int flags)
 {
 	struct inet_sock *inet = inet_sk(sk);
