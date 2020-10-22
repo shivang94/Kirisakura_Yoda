@@ -667,7 +667,8 @@ static inline u32 tcp_cookie_time(void)
 
 u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
 			      u16 *mssp);
-__u32 cookie_v4_init_sequence(const struct sk_buff *skb, __u16 *mss);
+__u32 cookie_v4_init_sequence(struct request_sock *req, const struct sock *sk,
+			      const struct sk_buff *skb, __u16 *mss);
 u64 cookie_init_timestamp(struct request_sock *req);
 bool cookie_timestamp_decode(const struct net *net,
 			     struct tcp_options_received *opt);
@@ -681,7 +682,8 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb);
 
 u32 __cookie_v6_init_sequence(const struct ipv6hdr *iph,
 			      const struct tcphdr *th, u16 *mssp);
-__u32 cookie_v6_init_sequence(const struct sk_buff *skb, __u16 *mss);
+__u32 cookie_v6_init_sequence(struct request_sock *req, const struct sock *sk,
+			      const struct sk_buff *skb, __u16 *mss);
 #endif
 /* tcp_output.c */
 
@@ -760,7 +762,7 @@ static inline int tcp_bound_to_half_wnd(struct tcp_sock *tp, int pktsize)
 }
 
 /* tcp.c */
-void tcp_get_info(struct sock *, struct tcp_info *);
+void tcp_get_info(struct sock *, struct tcp_info *, bool no_lock);
 
 /* Read 'sendfile()'-style from a TCP socket */
 int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
@@ -2156,12 +2158,13 @@ struct tcp_request_sock_ops {
 					  const struct sock *sk,
 					  const struct sk_buff *skb);
 #endif
-	void (*init_req)(struct request_sock *req,
-			 const struct sock *sk_listener,
-			 struct sk_buff *skb);
+	int (*init_req)(struct request_sock *req,
+			const struct sock *sk_listener,
+			struct sk_buff *skb,
+			bool want_cookie);
 #ifdef CONFIG_SYN_COOKIES
-	__u32 (*cookie_init_seq)(const struct sk_buff *skb,
-				 __u16 *mss);
+	__u32 (*cookie_init_seq)(struct request_sock *req, const struct sock *sk,
+				 const struct sk_buff *skb, __u16 *mss);
 #endif
 	struct dst_entry *(*route_req)(const struct sock *sk, struct flowi *fl,
 				       const struct request_sock *req);
@@ -2175,15 +2178,17 @@ struct tcp_request_sock_ops {
 
 #ifdef CONFIG_SYN_COOKIES
 static inline __u32 cookie_init_sequence(const struct tcp_request_sock_ops *ops,
+					 struct request_sock *req,
 					 const struct sock *sk, struct sk_buff *skb,
 					 __u16 *mss)
 {
 	tcp_synq_overflow(sk);
 	__NET_INC_STATS(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
-	return ops->cookie_init_seq(skb, mss);
+	return ops->cookie_init_seq(req, sk, skb, mss);
 }
 #else
 static inline __u32 cookie_init_sequence(const struct tcp_request_sock_ops *ops,
+					 struct request_sock *req,
 					 const struct sock *sk, struct sk_buff *skb,
 					 __u16 *mss)
 {
