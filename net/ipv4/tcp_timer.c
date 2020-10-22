@@ -20,6 +20,7 @@
 
 #include <linux/module.h>
 #include <linux/gfp.h>
+#include <net/mptcp.h>
 #include <net/tcp.h>
 
 int sysctl_tcp_thin_linear_timeouts __read_mostly;
