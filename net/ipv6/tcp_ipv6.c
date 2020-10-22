@@ -71,14 +71,14 @@
 #include <crypto/hash.h>
 #include <linux/scatterlist.h>
 
-static void	tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb);
-static void	tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+//static void	tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb);
+//static void	tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
 				      struct request_sock *req);
 
-static int	tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb);
+//static int	tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb);
 
-static const struct inet_connection_sock_af_ops ipv6_mapped;
-static const struct inet_connection_sock_af_ops ipv6_specific;
+const struct inet_connection_sock_af_ops ipv6_mapped;
+const struct inet_connection_sock_af_ops ipv6_specific;
 #ifdef CONFIG_TCP_MD5SIG
 static const struct tcp_sock_af_ops tcp_sock_ipv6_specific;
 static const struct tcp_sock_af_ops tcp_sock_ipv6_mapped_specific;
@@ -328,7 +328,7 @@ failure:
 	return err;
 }
 
-static void tcp_v6_mtu_reduced(struct sock *sk)
+void tcp_v6_mtu_reduced(struct sock *sk)
 {
 	struct dst_entry *dst;
 
@@ -1474,7 +1474,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
 	const struct ipv6hdr *hdr;
 	struct sock *sk, *meta_sk = NULL;
 	bool refcounted;
-	struct sock *sk;
+	//struct sock *sk;
 	int ret;
 	struct net *net = dev_net(skb->dev);
 
