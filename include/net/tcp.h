@@ -687,6 +687,8 @@ __u32 cookie_v6_init_sequence(struct request_sock *req, const struct sock *sk,
 #endif
 /* tcp_output.c */
 
+u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now,
+		     int min_tso_segs);
 void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
 			       int nonagle);
 int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs);
@@ -899,9 +901,9 @@ static inline u32 tcp_stamp_us_delta(u64 t1, u64 t0)
 	return max_t(s64, t1 - t0, 0);
 }
 
-static inline u32 tcp_stamp32_us_delta(u32 t1, u32 t0)
+static inline u32 tcp_stamp_us_delta(u64 t1, u64 t0)
 {
-	return max_t(s32, t1 - t0, 0);
+	return max_t(s64, t1 - t0, 0);
 }
 
 static inline u32 tcp_skb_timestamp(const struct sk_buff *skb)
