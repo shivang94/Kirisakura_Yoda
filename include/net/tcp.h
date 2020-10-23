@@ -896,10 +896,10 @@ static inline u32 tcp_time_stamp_raw(void)
 
 void tcp_mstamp_refresh(struct tcp_sock *tp);
 
-static inline u32 tcp_stamp_us_delta(u64 t1, u64 t0)
-{
-	return max_t(s64, t1 - t0, 0);
-}
+//static inline u32 tcp_stamp_us_delta(u64 t1, u64 t0)
+//{
+//	return max_t(s64, t1 - t0, 0);
+//}
 
 static inline u32 tcp_stamp_us_delta(u64 t1, u64 t0)
 {
