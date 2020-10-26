@@ -987,7 +987,7 @@ struct tcp_skb_cb {
 
 	union {
 		struct {
-#define TCPCB_DELIVERED_CE_MASK ((1U<<20) - 1)
+//#define TCPCB_DELIVERED_CE_MASK ((1U<<20) - 1)
 			/* There is space for up to 24 bytes */
 			__u32 in_flight:30,/* Bytes in flight at transmit */
 			      is_app_limited:1, /* cwnd not fully used? */
@@ -1144,22 +1144,22 @@ struct ack_sample {
  */
 struct rate_sample {
 	u64  prior_mstamp; /* starting timestamp for interval */
-	u32  prior_lost;	/* tp->lost at "prior_mstamp" */
+	//u32  prior_lost;	/* tp->lost at "prior_mstamp" */
 	u32  prior_delivered;	/* tp->delivered at "prior_mstamp" */
-	u32  prior_delivered_ce;/* tp->delivered_ce at "prior_mstamp" */
-	u32 tx_in_flight;	/* packets in flight at starting timestamp */
-	s32  lost;		/* number of packets lost over interval */
-	s32  delivered;		/* number of packets delivered over interval */
-	s32  delivered_ce;	/* packets delivered w/ CE mark over interval */
+	//u32  prior_delivered_ce;/* tp->delivered_ce at "prior_mstamp" */
+	//u32 tx_in_flight;	/* packets in flight at starting timestamp */
+	//s32  lost;		/* number of packets lost over interval */
+	//s32  delivered;		/* number of packets delivered over interval */
+	//s32  delivered_ce;	/* packets delivered w/ CE mark over interval */
 	long interval_us;	/* time for tp->delivered to incr "delivered" */
 	long rtt_us;		/* RTT of last (S)ACKed packet (or -1) */
 	int  losses;		/* number of packets marked lost upon ACK */
 	u32  acked_sacked;	/* number of packets newly (S)ACKed upon ACK */
 	u32  prior_in_flight;	/* in flight before this ACK */
 	bool is_app_limited;	/* is sample from packet with bubble in pipe? */
-	bool is_retrans;	/* is sample from retransmission? */
-	bool is_ack_delayed;	/* is this (likely) a delayed ACK? */
-	bool is_ece;		/* did this ACK have ECN marked? */
+	//bool is_retrans;	/* is sample from retransmission? */
+	//bool is_ack_delayed;	/* is this (likely) a delayed ACK? */
+	//bool is_ece;		/* did this ACK have ECN marked? */
 };
 
 struct tcp_congestion_ops {
@@ -1271,7 +1271,7 @@ static inline void tcp_ca_event(struct sock *sk, const enum tcp_ca_event event)
 }
 
 /* From tcp_rate.c */
-void tcp_set_tx_in_flight(struct sock *sk, struct sk_buff *skb);
+//void tcp_set_tx_in_flight(struct sock *sk, struct sk_buff *skb);
 void tcp_rate_skb_sent(struct sock *sk, struct sk_buff *skb);
 void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
 			    struct rate_sample *rs);

@@ -692,7 +692,7 @@ struct sk_buff {
 	 * want to keep them across layers you have to do a skb_clone()
 	 * first. This is owned by whoever has the skb queued ATM.
 	 */
-	char			cb[48] __aligned(8);
+	char			cb[80] __aligned(8);
 
 	unsigned long		_skb_refdst;
 	void			(*destructor)(struct sk_buff *skb);
@@ -774,7 +774,7 @@ struct sk_buff {
 	__u8			ipvs_property:1;
 
 	__u8			inner_protocol_type:1;
-	__u8			fast_forwarded:1;
+	//__u8			fast_forwarded:1;
 	__u8			remcsum_offload:1;
 
 	 /*4 or 6 bit hole */
