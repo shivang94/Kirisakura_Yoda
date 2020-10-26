@@ -2442,7 +2442,7 @@ int tcp_disconnect(struct sock *sk, int flags)
 		/* The last check adjusts for discrepancy of Linux wrt. RFC
 		 * states
 		 */
-		tcp_send_active_reset(sk, gfp_any());
+		tp->ops->send_active_reset(sk, gfp_any());
 		sk->sk_err = ECONNRESET;
 	} else if (old_state == TCP_SYN_SENT)
 		sk->sk_err = ECONNRESET;
@@ -3697,7 +3697,9 @@ void tcp_done(struct sock *sk)
 	if (sk->sk_state == TCP_SYN_SENT || sk->sk_state == TCP_SYN_RECV)
 		TCP_INC_STATS(sock_net(sk), TCP_MIB_ATTEMPTFAILS);
 
+	WARN_ON(sk->sk_state == TCP_CLOSE);
 	tcp_set_state(sk, TCP_CLOSE);
+
 	tcp_clear_xmit_timers(sk);
 	if (req)
 		reqsk_fastopen_remove(sk, req, false);
@@ -3745,7 +3747,7 @@ int tcp_abort(struct sock *sk, int err)
 		smp_wmb();
 		sk->sk_error_report(sk);
 		if (tcp_need_reset(sk->sk_state))
-			tcp_send_active_reset(sk, GFP_ATOMIC);
+			tcp_sk(sk)->ops->send_active_reset(sk, GFP_ATOMIC);
 		tcp_done(sk);
 	}
 
