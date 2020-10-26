@@ -162,7 +162,7 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
 	rs->lost        = tp->lost - rs->prior_lost;
 
 	rs->delivered_ce = tp->delivered_ce - rs->prior_delivered_ce;
-	/* delivered_ce occupies less than 32 bits in the skb control block */
+	* delivered_ce occupies less than 32 bits in the skb control block */
 	rs->delivered_ce &= TCPCB_DELIVERED_CE_MASK;
 
 	/* Model sending data and receiving ACKs as separate pipeline phases
