@@ -3037,7 +3037,7 @@ static bool tcp_ack_update_rtt(struct sock *sk, const int flag,
 	 */
 	tcp_update_rtt_min(sk, ca_rtt_us, flag);
 	tcp_rtt_estimator(sk, seq_rtt_us);
-	tcp_set_rto(sk);
+	tp->ops->set_rto(sk);
 
 	/* RFC6298: only reset backoff on valid RTT measurement. */
 	inet_csk(sk)->icsk_backoff = 0;
@@ -3788,10 +3788,10 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP))
 		sk_dst_confirm(sk);
 
-	delivered = tcp_newly_delivered(sk, delivered, flag);
+	delivered = tp->delivered - delivered;	/* freshly ACKed or SACKed */
 	lost = tp->lost - lost;			/* freshly marked lost */
-	rs.is_ack_delayed = !!(flag & FLAG_ACK_MAYBE_DELAYED);
-	rs.is_ece = !!(flag & FLAG_ECE);
+	//rs.is_ack_delayed = !!(flag & FLAG_ACK_MAYBE_DELAYED);
+	//rs.is_ece = !!(flag & FLAG_ECE);
 	tcp_rate_gen(sk, delivered, lost, is_sack_reneg, sack_state.rate);
 	tcp_cong_control(sk, ack, delivered, flag, sack_state.rate);
 	tcp_xmit_recovery(sk, rexmit);
@@ -3801,7 +3801,7 @@ no_queue:
 	/* If data was DSACKed, see if we can undo a cwnd reduction. */
 	if (flag & FLAG_DSACKING_ACK) {
 		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
-		tcp_newly_delivered(sk, delivered, flag);
+		//tcp_newly_delivered(sk, delivered, flag);
 	}
 	/* If this ack opens up a zero window, clear backoff.  It was
 	 * being used to time the probes, and is probably far higher than
@@ -3826,7 +3826,7 @@ old_ack:
 		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
 						&sack_state);
 		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
-		tcp_newly_delivered(sk, delivered, flag);
+		//tcp_newly_delivered(sk, delivered, flag);
 		tcp_xmit_recovery(sk, rexmit);
 	}
 
@@ -4221,7 +4221,7 @@ void tcp_fin(struct sock *sk)
 		}
 		/* Received a FIN -- send ACK and enter TIME_WAIT. */
 		tcp_send_ack(sk);
-		tcp_time_wait(sk, TCP_TIME_WAIT, 0);
+		tp->ops->time_wait(sk, TCP_TIME_WAIT, 0);
 		break;
 	default:
 		/* Only TCP_LISTEN and TCP_CLOSE are left, in these
@@ -5252,7 +5252,7 @@ static void tcp_new_space(struct sock *sk)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
-	if (tcp_should_expand_sndbuf(sk)) {
+	if (tp->ops->should_expand_sndbuf(sk)) {
 		tcp_sndbuf_expand(sk);
 		tp->snd_cwnd_stamp = tcp_jiffies32;
 	}
@@ -5270,7 +5270,7 @@ static void tcp_check_space(struct sock *sk)
 		    (sk->sk_socket &&
 		     test_bit(SOCK_NOSPACE, &sk->sk_socket->flags))) {
 			tcp_new_space(sk);
-			if (!test_bit(SOCK_NOSPACE, &sk->sk_socket->flags))
+			if (sk->sk_socket && !test_bit(SOCK_NOSPACE, &sk->sk_socket->flags))
 				tcp_chrono_stop(sk, TCP_CHRONO_SNDBUF_LIMITED);
 		}
 	}
@@ -5290,18 +5290,16 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
 	struct tcp_sock *tp = tcp_sk(sk);
 
 	    /* More than one full frame received... */
-	if (((tp->rcv_nxt - tp->rcv_wup) > (inet_csk(sk)->icsk_ack.rcv_mss) *
-					sysctl_tcp_delack_seg &&
+	if (((tp->rcv_nxt - tp->rcv_wup) > inet_csk(sk)->icsk_ack.rcv_mss &&
 	     /* ... and right edge of window advances far enough.
 	      * (tcp_recvmsg() will send ACK otherwise). Or...
 	      */
-	     __tcp_select_window(sk) >= tp->rcv_wnd) ||
+	    (tp->ops->__select_window(sk) >= tp->rcv_wnd || (mptcp(tp) &&
+	     skb_queue_empty(&mptcp_meta_sk(sk)->sk_receive_queue)))) ||
 	    /* We ACK each frame or... */
 	    tcp_in_quickack_mode(sk) ||
 	    /* We have out of order data or... */
-	    (ofo_possible && !RB_EMPTY_ROOT(&tp->out_of_order_queue)) ||
-	    /* Protocol state mandates a one-time immediate ACK */
-	    inet_csk(sk)->icsk_ack.pending & ICSK_ACK_NOW) {
+	    (ofo_possible && !RB_EMPTY_ROOT(&tp->out_of_order_queue))) {
 		/* Then ack it now */
 		tcp_send_ack(sk);
 	} else {
@@ -5780,7 +5778,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
 	 */
 	tp->lsndtime = tcp_jiffies32;
 
-	tcp_init_buffer_space(sk);
+	tp->ops->init_buffer_space(sk);
 
 	if (sock_flag(sk, SOCK_KEEPOPEN))
 		inet_csk_reset_keepalive_timer(sk, keepalive_time_when(tp));
@@ -6246,7 +6244,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 
 			tcp_mtup_init(sk);
 			tp->copied_seq = tp->rcv_nxt;
-			tcp_init_buffer_space(sk);
+			tp->ops->init_buffer_space(sk);
 		}
 		smp_mb();
 		tcp_set_state(sk, TCP_ESTABLISHED);
@@ -6370,7 +6368,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 			 */
 			inet_csk_reset_keepalive_timer(sk, tmo);
 		} else {
-			tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
+			tp->ops->time_wait(sk, TCP_FIN_WAIT2, tmo);
 			goto discard;
 		}
 		break;
@@ -6378,7 +6376,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 
 	case TCP_CLOSING:
 		if (tp->snd_una == tp->write_seq) {
-			tcp_time_wait(sk, TCP_TIME_WAIT, 0);
+			tp->ops->time_wait(sk, TCP_TIME_WAIT, 0);
 			goto discard;
 		}
 		break;
