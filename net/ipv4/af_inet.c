@@ -1891,6 +1891,9 @@ static int __init inet_init(void)
 
 	ip_init();
 
+	/* We must initialize MPTCP before TCP. */
+	mptcp_init();
+
 	/* Setup TCP slab cache for open requests. */
 	tcp_init();
 
