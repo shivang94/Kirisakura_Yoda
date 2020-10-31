@@ -32,3 +32,4 @@ echo "Build The Good Stuff"
 echo 
 
 make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out -j1
+
