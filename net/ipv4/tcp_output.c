@@ -788,8 +788,8 @@ static void tcp_tsq_handler(struct sock *sk)
 			tcp_xmit_retransmit_queue(sk);
 		}
 
-		tcp_write_xmit(sk, tcp_current_mss(sk), tp->nonagle,
-			       0, GFP_ATOMIC);
+		tcp_sk(sk)->ops->write_xmit(sk, tcp_current_mss(sk),
+					    tcp_sk(sk)->nonagle, 0, GFP_ATOMIC);
 	}
 }
 /*
@@ -2662,8 +2662,8 @@ void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
 	if (unlikely(sk->sk_state == TCP_CLOSE))
 		return;
 
-	if (tcp_write_xmit(sk, cur_mss, nonagle, 0,
-			   sk_gfp_mask(sk, GFP_ATOMIC)))
+	if (tcp_sk(sk)->ops->write_xmit(sk, cur_mss, nonagle, 0,
+					sk_gfp_mask(sk, GFP_ATOMIC)))
 		tcp_check_probe_timer(sk);
 }
 
@@ -2676,7 +2676,8 @@ void tcp_push_one(struct sock *sk, unsigned int mss_now)
 
 	BUG_ON(!skb || skb->len < mss_now);
 
-	tcp_write_xmit(sk, mss_now, TCP_NAGLE_PUSH, 1, sk->sk_allocation);
+	tcp_sk(sk)->ops->write_xmit(sk, mss_now, TCP_NAGLE_PUSH, 1,
+				    sk->sk_allocation);
 }
 
 /* This function returns the amount that we can raise the
@@ -3871,7 +3872,7 @@ void tcp_send_probe0(struct sock *sk)
 	unsigned long probe_max;
 	int err;
 
-	err = tcp_write_wakeup(sk, LINUX_MIB_TCPWINPROBE);
+	err = tp->ops->write_wakeup(sk, LINUX_MIB_TCPWINPROBE);
 
 	if (tp->packets_out || !tcp_send_head(sk)) {
 		/* Cancel probe timer, if it is not required. */
