@@ -1058,6 +1058,8 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
 	tp = tcp_sk(sk);
 
 	if (clone_it) {
+		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
+			- tp->snd_una;
 		oskb = skb;
 		if (unlikely(skb_cloned(skb)))
 			skb = pskb_copy(skb, gfp_mask);
@@ -1135,7 +1137,7 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
 	tcp_options_write((__be32 *)(th + 1), tp, &opts, skb);
 	skb_shinfo(skb)->gso_type = sk->sk_gso_type;
 	if (likely(!(tcb->tcp_flags & TCPHDR_SYN))) {
-		th->window      = htons(tcp_select_window(sk));
+		th->window	= htons(tp->ops->select_window(sk));
 		tcp_ecn_send(sk, skb, th, tcp_header_size);
 	} else {
 		/* RFC1323: The window in SYN & SYN/ACK segments
@@ -1778,13 +1780,11 @@ EXPORT_SYMBOL(tcp_tso_autosize);
 static u32 tcp_tso_segs(struct sock *sk, unsigned int mss_now)
 {
 	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
-	u32 min_tso, tso_segs;
+	u32 tso_segs = ca_ops->tso_segs_goal ? ca_ops->tso_segs_goal(sk) : 0;
 
-	min_tso = ca_ops->min_tso_segs ?
-			ca_ops->min_tso_segs(sk) :
-			sysctl_tcp_min_tso_segs;
-
-	tso_segs = tcp_tso_autosize(sk, mss_now, min_tso);
+	if (!tso_segs)
+		tso_segs = tcp_tso_autosize(sk, mss_now,
+					    sysctl_tcp_min_tso_segs);
 	return min_t(u32, tso_segs, sk->sk_gso_max_segs);
 }
 
@@ -1829,7 +1829,8 @@ unsigned int tcp_cwnd_test(const struct tcp_sock *tp,
 	u32 in_flight, cwnd, halfcwnd;
 
 	/* Don't be strict about the congestion window for the final FIN.  */
-	if ((TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN) &&
+	if (skb &&
+	    (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN) &&
 	    tcp_skb_pcount(skb) == 1)
 		return 1;
 
