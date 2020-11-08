@@ -460,7 +460,7 @@ bool tcp_urg_mode(const struct tcp_sock *tp)
 //	__u32 tsval, tsecr;	/* need to include OPTION_TS */
 //	struct tcp_fastopen_cookie *fastopen_cookie;	/* Fast open cookie */
 //};
-/*/
+
 /* Write previously computed TCP options to the packet.
  *
  * Beware: Something in the Internet is very sensitive to the ordering of
@@ -1780,11 +1780,13 @@ EXPORT_SYMBOL(tcp_tso_autosize);
 static u32 tcp_tso_segs(struct sock *sk, unsigned int mss_now)
 {
 	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
-	u32 tso_segs = ca_ops->tso_segs_goal ? ca_ops->tso_segs_goal(sk) : 0;
+	u32 min_tso, tso_segs;
 
-	if (!tso_segs)
-		tso_segs = tcp_tso_autosize(sk, mss_now,
-					    sysctl_tcp_min_tso_segs);
+	min_tso = ca_ops->min_tso_segs ?
+			ca_ops->min_tso_segs(sk) :
+			sysctl_tcp_min_tso_segs;
+
+	tso_segs = tcp_tso_autosize(sk, mss_now, min_tso);
 	return min_t(u32, tso_segs, sk->sk_gso_max_segs);
 }
 
