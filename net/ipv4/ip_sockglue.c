@@ -44,6 +44,8 @@
 #endif
 #include <net/ip_fib.h>
 
+#include <net/mptcp.h>
+
 #include <linux/errqueue.h>
 #include <linux/uaccess.h>
 
