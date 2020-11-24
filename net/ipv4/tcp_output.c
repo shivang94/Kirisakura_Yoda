@@ -68,25 +68,7 @@ int sysctl_tcp_tso_win_divisor __read_mostly = 3;
 /* By default, RFC2861 behavior.  */
 int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
 
-/* Refresh clocks of a TCP socket,
- * ensuring monotically increasing values.
- */
-void tcp_mstamp_refresh(struct tcp_sock *tp)
-{
-	u64 val = tcp_clock_ns();
 
-	if (val > tp->tcp_clock_cache)
-		tp->tcp_clock_cache = val;
-
-	val = div_u64(val, NSEC_PER_USEC);
-	if (val > tp->tcp_mstamp)
-		tp->tcp_mstamp = val;
-}
-
-/*imran
-static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
-			   int push_one, gfp_t gfp);
-*/
 /* Account for new data that has been sent to the network. */
 void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
 {
