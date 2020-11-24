@@ -328,15 +328,15 @@ static void bbr_cwnd_event(struct sock *sk, enum tcp_ca_event event)
 
 	if (event == CA_EVENT_TX_START && tp->app_limited) {
 		bbr->idle_restart = 1;
-		bbr->ack_epoch_mstamp = tp->tcp_mstamp;
-		bbr->ack_epoch_acked = 0;
+		//bbr->ack_epoch_mstamp = tp->tcp_mstamp;
+		//bbr->ack_epoch_acked = 0;
 		/* Avoid pointless buffer overflows: pace at est. bw if we don't
 		 * need more speed (we're restarting from idle and app-limited).
 		 */
 		if (bbr->mode == BBR_PROBE_BW)
 			bbr_set_pacing_rate(sk, bbr_bw(sk), BBR_UNIT);
-		else if (bbr->mode == BBR_PROBE_RTT)
-			bbr_check_probe_rtt_done(sk);
+		//else if (bbr->mode == BBR_PROBE_RTT)
+		//	bbr_check_probe_rtt_done(sk);
 	}
 }
 
@@ -391,33 +391,6 @@ static u32 bbr_target_cwnd(struct sock *sk, u32 bw, int gain)
 		cwnd += 2;
 
 	return cwnd;
-}
-
-/* Find inflight based on min RTT and the estimated bottleneck bandwidth. */
-static u32 bbr_inflight(struct sock *sk, u32 bw, int gain)
-{
-	u32 inflight;
-
-	inflight = bbr_bdp(sk, bw, gain);
-	inflight = bbr_quantization_budget(sk, inflight, gain);
-
-	return inflight;
-}
-
-/* Find the cwnd increment based on estimate of ack aggregation */
-static u32 bbr_ack_aggregation_cwnd(struct sock *sk)
-{
-	u32 max_aggr_cwnd, aggr_cwnd = 0;
-
-	if (bbr_extra_acked_gain && bbr_full_bw_reached(sk)) {
-		max_aggr_cwnd = ((u64)bbr_bw(sk) * bbr_extra_acked_max_us)
-				/ BW_UNIT;
-		aggr_cwnd = (bbr_extra_acked_gain * bbr_extra_acked(sk))
-			     >> BBR_SCALE;
-		aggr_cwnd = min(aggr_cwnd, max_aggr_cwnd);
-	}
-
-	return aggr_cwnd;
 }
 
 /* An optimization in BBR to reduce losses: On the first round of recovery, we
