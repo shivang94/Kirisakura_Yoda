@@ -630,8 +630,7 @@ static unsigned int tcp_synack_options(struct request_sock *req,
 				       unsigned int mss, struct sk_buff *skb,
 				       struct tcp_out_options *opts,
 				       const struct tcp_md5sig_key *md5,
-				       struct tcp_fastopen_cookie *foc,
-				       enum tcp_synack_type synack_type)
+				       struct tcp_fastopen_cookie *foc)
 {
 	struct inet_request_sock *ireq = inet_rsk(req);
 	unsigned int remaining = MAX_TCP_OPTION_SPACE;
@@ -646,8 +645,7 @@ static unsigned int tcp_synack_options(struct request_sock *req,
 		 * rather than TS in order to fit in better with old,
 		 * buggy kernels, but that was deemed to be unnecessary.
 		 */
-		if (synack_type != TCP_SYNACK_COOKIE)
-			ireq->tstamp_ok &= !ireq->sack_ok;
+		ireq->tstamp_ok &= !ireq->sack_ok;
 	}
 #endif
 

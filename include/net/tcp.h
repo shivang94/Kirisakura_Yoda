@@ -1421,10 +1421,10 @@ static inline bool tcp_is_cwnd_limited(const struct sock *sk)
  * but is not always installed/used.
  * Return true if TCP stack should pace packets itself.
  */
-static inline bool tcp_needs_internal_pacing(const struct sock *sk)
-{
-	return smp_load_acquire(&sk->sk_pacing_status) == SK_PACING_NEEDED;
-}
+//static inline bool tcp_needs_internal_pacing(const struct sock *sk)
+//{
+//	return smp_load_acquire(&sk->sk_pacing_status) == SK_PACING_NEEDED;
+//}
 
 /* Something is really bad, we could not queue an additional packet,
  * because qdisc is full or receiver sent a 0 window.
