@@ -269,7 +269,7 @@ static void __tcp_ecn_check_ce(struct sock *sk, const struct sk_buff *skb)
 			tcp_enter_quickack_mode(sk, 2);
 		break;
 	case INET_ECN_CE:
-		if (tcp_ca_wants_ce_events(sk))
+		if (tcp_ca_needs_ecn(sk))
 			tcp_ca_event(sk, CA_EVENT_ECN_IS_CE);
 
 		if (!(tp->ecn_flags & TCP_ECN_DEMAND_CWR)) {
@@ -280,7 +280,7 @@ static void __tcp_ecn_check_ce(struct sock *sk, const struct sk_buff *skb)
 		tp->ecn_flags |= TCP_ECN_SEEN;
 		break;
 	default:
-		if (tcp_ca_wants_ce_events(sk))
+		if (tcp_ca_needs_ecn(sk))
 			tcp_ca_event(sk, CA_EVENT_ECN_NO_CE);
 		tp->ecn_flags |= TCP_ECN_SEEN;
 		break;
@@ -998,14 +998,14 @@ void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb)
 
 	tcp_sum_lost(tp, skb);
 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
-		struct sock *sk = (struct sock *)tp;
-		const struct tcp_congestion_ops *ca_ops;
+		//struct sock *sk = (struct sock *)tp;
+		//const struct tcp_congestion_ops *ca_ops;
 
 		tp->lost_out += tcp_skb_pcount(skb);
 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
-		ca_ops = inet_csk(sk)->icsk_ca_ops;
-		if (ca_ops->skb_marked_lost)
-			ca_ops->skb_marked_lost(sk, skb);
+		//ca_ops = inet_csk(sk)->icsk_ca_ops;
+		//if (ca_ops->skb_marked_lost)
+			//ca_ops->skb_marked_lost(sk, skb);
 	}
 }
 
@@ -1364,17 +1364,6 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
 	tcp_skb_pcount_add(prev, pcount);
 	WARN_ON_ONCE(tcp_skb_pcount(skb) < pcount);
 	tcp_skb_pcount_add(skb, -pcount);
-
-	/* Adjust tx.in_flight as pcount is shifted from skb to prev. */
-	if (WARN_ONCE(TCP_SKB_CB(skb)->tx.in_flight < pcount,
-		      "prev in_flight: %u skb in_flight: %u pcount: %u",
-		      TCP_SKB_CB(prev)->tx.in_flight,
-		      TCP_SKB_CB(skb)->tx.in_flight,
-		      pcount))
-		TCP_SKB_CB(skb)->tx.in_flight = 0;
-	else
-		TCP_SKB_CB(skb)->tx.in_flight -= pcount;
-	TCP_SKB_CB(prev)->tx.in_flight += pcount;
 
 	/* When we're adding to gso_segs == 1, gso_size will be zero,
 	 * in theory this shouldn't be necessary but as long as DSACK
@@ -2984,18 +2973,18 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
 	*rexmit = REXMIT_LOST;
 }
 
-static void tcp_update_rtt_min(struct sock *sk, u32 rtt_us, const int flag)
+static void tcp_update_rtt_min(struct sock *sk, u32 rtt_us)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	u32 wlen = sysctl_tcp_min_rtt_wlen * HZ;
 
-	if ((flag & FLAG_ACK_MAYBE_DELAYED) && rtt_us > tcp_min_rtt(tp)) {
-		/* If the remote keeps returning delayed ACKs, eventually
-		 * the min filter would pick it up and overestimate the
-		 * prop. delay when it expires. Skip suspected delayed ACKs.
-		 */
-		return;
-	}
+	//if ((flag & FLAG_ACK_MAYBE_DELAYED) && rtt_us > tcp_min_rtt(tp)) {
+	//	/* If the remote keeps returning delayed ACKs, eventually
+	//	 * the min filter would pick it up and overestimate the
+	//	 * prop. delay when it expires. Skip suspected delayed ACKs.
+	//	 */
+	//	return;
+	//}
 	minmax_running_min(&tp->rtt_min, wlen, tcp_jiffies32,
 			   rtt_us ? : jiffies_to_usecs(1));
 }
@@ -3035,7 +3024,7 @@ static bool tcp_ack_update_rtt(struct sock *sk, const int flag,
 	 * always taken together with ACK, SACK, or TS-opts. Any negative
 	 * values will be skipped with the seq_rtt_us < 0 check above.
 	 */
-	tcp_update_rtt_min(sk, ca_rtt_us, flag);
+	tcp_update_rtt_min(sk, ca_rtt_us);
 	tcp_rtt_estimator(sk, seq_rtt_us);
 	tp->ops->set_rto(sk);
 
@@ -3259,15 +3248,15 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
 		seq_rtt_us = tcp_stamp_us_delta(tp->tcp_mstamp, first_ackt);
 		ca_rtt_us = tcp_stamp_us_delta(tp->tcp_mstamp, last_ackt);
 
-		if (pkts_acked == 1 && fully_acked && !prior_sacked &&
-		    (tp->snd_una - prior_snd_una) < tp->mss_cache &&
-		    sack->rate->prior_delivered + 1 == tp->delivered &&
-		    !(flag & (FLAG_CA_ALERT | FLAG_SYN_ACKED))) {
-			/* Conservatively mark a delayed ACK. It's typically
-			 * from a lone runt packet over the round trip to
-			 * a receiver w/o out-of-order or CE events.
-			 */
-			flag |= FLAG_ACK_MAYBE_DELAYED;
+	//	if (pkts_acked == 1 && fully_acked && !prior_sacked &&
+	//	    (tp->snd_una - prior_snd_una) < tp->mss_cache &&
+	//	    sack->rate->prior_delivered + 1 == tp->delivered &&
+	//	    !(flag & (FLAG_CA_ALERT | FLAG_SYN_ACKED))) {
+	//		/* Conservatively mark a delayed ACK. It's typically
+	//		 * from a lone runt packet over the round trip to
+	//		 * a receiver w/o out-of-order or CE events.
+	//		 */
+	//		flag |= FLAG_ACK_MAYBE_DELAYED;
 		}
 	}
 	if (sack->first_sackt) {
@@ -3320,7 +3309,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
 
 	if (icsk->icsk_ca_ops->pkts_acked) {
 		struct ack_sample sample = { .pkts_acked = pkts_acked,
-					     .rtt_us = sack->rate->rtt_us };
+					     .rtt_us = sack->rate->rtt_us,
+					     .in_flight = last_in_flight };
 
 		sample.in_flight = tp->mss_cache *
 			(tp->delivered - sack->rate->prior_delivered);
@@ -3583,8 +3573,10 @@ static void tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)
 	}
 }
 
-/* This routine deals with acks during a TLP episode and ends an episode by
- * resetting tlp_high_seq. Ref: TLP algorithm in draft-ietf-tcpm-rack
+/* This routine deals with acks during a TLP episode.
+ * We mark the end of a TLP episode on receiving TLP dupack or when
+ * ack is after tlp_high_seq.
+ * Ref: loss detection algorithm in draft-dukkipati-tcpm-tcp-loss-probe.
  */
 static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
 {
@@ -3593,10 +3585,7 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
 	if (before(ack, tp->tlp_high_seq))
 		return;
 
-	if (!tp->tlp_retrans) {
-		/* TLP of new data has been acknowledged */
-		tp->tlp_high_seq = 0;
-	} else if (flag & FLAG_DSACKING_ACK) {
+	if (flag & FLAG_DSACKING_ACK) {
 		/* This DSACK means original and TLP probe arrived; no loss */
 		tp->tlp_high_seq = 0;
 	} else if (after(ack, tp->tlp_high_seq)) {
@@ -3646,19 +3635,7 @@ static void tcp_xmit_recovery(struct sock *sk, int rexmit)
 }
 
 /* Returns the number of packets newly acked or sacked by the current ACK */
-static u32 tcp_newly_delivered(struct sock *sk, u32 prior_delivered, int flag)
-{
-	struct tcp_sock *tp = tcp_sk(sk);
-	u32 delivered;
-
-	delivered = tp->delivered - prior_delivered;
-	if (flag & FLAG_ECE)
-		tp->delivered_ce += delivered;
-	return delivered;
-}
-
-/* This routine deals with incoming acks, but not outgoing ones. */
-static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct tcp_sock *tp = tcp_sk(sk);
@@ -3708,7 +3685,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 
 	prior_fackets = tp->fackets_out;
 	rs.prior_in_flight = tcp_packets_in_flight(tp);
-	tcp_rate_check_app_limited(sk);
+	//tcp_rate_check_app_limited(sk);
 
 	/* ts_recent update must be made after we are sure that the packet
 	 * is in window.
@@ -3801,10 +3778,8 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 
 no_queue:
 	/* If data was DSACKed, see if we can undo a cwnd reduction. */
-	if (flag & FLAG_DSACKING_ACK) {
+	if (flag & FLAG_DSACKING_ACK)
 		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
-		//tcp_newly_delivered(sk, delivered, flag);
-	}
 	/* If this ack opens up a zero window, clear backoff.  It was
 	 * being used to time the probes, and is probably far higher than
 	 * it needs to be for normal retransmission.
@@ -3828,7 +3803,6 @@ old_ack:
 		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
 						&sack_state);
 		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
-		//tcp_newly_delivered(sk, delivered, flag);
 		tcp_xmit_recovery(sk, rexmit);
 	}
 
@@ -5287,6 +5261,11 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
 	if (((tp->rcv_nxt - tp->rcv_wup) > inet_csk(sk)->icsk_ack.rcv_mss &&
 	     /* ... and right edge of window advances far enough.
 	      * (tcp_recvmsg() will send ACK otherwise). Or...
+	      * in the case of mptcp the meta ofo queue may
+	      * prevent tcp_recvmsg from being called in time
+	      * so no data is available for the application, skip the
+	      * receive window check as there is no hope that the application
+	      * will do a tcp_recvmsg anytime soon.
 	      */
 	    (tp->ops->__select_window(sk) >= tp->rcv_wnd || (mptcp(tp) &&
 	     skb_queue_empty(&mptcp_meta_sk(sk)->sk_receive_queue)))) ||
@@ -6129,6 +6108,7 @@ reset_and_undo:
  */
 
 int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
+	__releases(&sk->sk_lock.slock)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct inet_connection_sock *icsk = inet_csk(sk);

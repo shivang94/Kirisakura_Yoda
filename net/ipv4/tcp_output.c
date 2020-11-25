@@ -2581,10 +2581,12 @@ void tcp_send_loss_probe(struct sock *sk)
 	int mss = tcp_current_mss(sk);
 
 	/* At most one outstanding TLP */
-	if (tp->tlp_high_seq)
-		goto rearm_timer;
+//
+///	if (tp->tlp_high_seq)
+//		goto rearm_timer;
+//
+//	tp->tlp_retrans = 0;
 
-	tp->tlp_retrans = 0;
 	skb = tcp_send_head(sk);
 	if (skb) {
 		if (tcp_snd_wnd_test(tp, skb, mss)) {
@@ -2632,7 +2634,7 @@ void tcp_send_loss_probe(struct sock *sk)
 	if (__tcp_retransmit_skb(sk, skb, 1))
 		goto rearm_timer;
 
-	tp->tlp_retrans = 1;
+	//tp->tlp_retrans = 1;
 	/* Record snd_nxt for loss detection. */
 	tp->tlp_high_seq = tp->snd_nxt;
 
