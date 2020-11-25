@@ -185,15 +185,15 @@ static const u32 bbr_lt_bw_diff = 4000 / 8;
 static const u32 bbr_lt_bw_max_rtts = 48;
 
 /* Gain factor for adding extra_acked to target cwnd: */
-static const int bbr_extra_acked_gain = BBR_UNIT;
+//static const int bbr_extra_acked_gain = BBR_UNIT;
 /* Window length of extra_acked window. */
-static const u32 bbr_extra_acked_win_rtts = 5;
+//static const u32 bbr_extra_acked_win_rtts = 5;
 /* Max allowed val for ack_epoch_acked, after which sampling epoch is reset */
-static const u32 bbr_ack_epoch_acked_reset_thresh = 1U << 20;
+//static const u32 bbr_ack_epoch_acked_reset_thresh = 1U << 20;
 /* Time period for clamping cwnd increment due to ack aggregation */
-static const u32 bbr_extra_acked_max_us = 100 * 1000;
+//static const u32 bbr_extra_acked_max_us = 100 * 1000;
 
-static void bbr_check_probe_rtt_done(struct sock *sk);
+//static void bbr_check_probe_rtt_done(struct sock *sk);
 
 /* Do we estimate that STARTUP filled the pipe? */
 static bool bbr_full_bw_reached(const struct sock *sk)
@@ -222,12 +222,12 @@ static u32 bbr_bw(const struct sock *sk)
 /* Return maximum extra acked in past k-2k round trips,
  * where k = bbr_extra_acked_win_rtts.
  */
-static u16 bbr_extra_acked(const struct sock *sk)
-{
-	struct bbr *bbr = inet_csk_ca(sk);
+//static u16 bbr_extra_acked(const struct sock *sk)
+//{
+//	struct bbr *bbr = inet_csk_ca(sk);
 
-	return max(bbr->extra_acked[0], bbr->extra_acked[1]);
-}
+//	return max(bbr->extra_acked[0], bbr->extra_acked[1]);
+//}
 
 /* Return rate in bytes per second, optionally with a gain.
  * The order here is chosen carefully to avoid overflow of u64. This should
@@ -730,66 +730,6 @@ static void bbr_update_bw(struct sock *sk, const struct rate_sample *rs)
 	}
 }
 
-/* Estimates the windowed max degree of ack aggregation.
- * This is used to provision extra in-flight data to keep sending during
- * inter-ACK silences.
- *
- * Degree of ack aggregation is estimated as extra data acked beyond expected.
- *
- * max_extra_acked = "maximum recent excess data ACKed beyond max_bw * interval"
- * cwnd += max_extra_acked
- *
- * Max extra_acked is clamped by cwnd and bw * bbr_extra_acked_max_us (100 ms).
- * Max filter is an approximate sliding window of 5-10 (packet timed) round
- * trips.
- */
-static void bbr_update_ack_aggregation(struct sock *sk,
-				       const struct rate_sample *rs)
-{
-	u32 epoch_us, expected_acked, extra_acked;
-	struct bbr *bbr = inet_csk_ca(sk);
-	struct tcp_sock *tp = tcp_sk(sk);
-
-	if (!bbr_extra_acked_gain || rs->acked_sacked <= 0 ||
-	    rs->delivered < 0 || rs->interval_us <= 0)
-		return;
-
-	if (bbr->round_start) {
-		bbr->extra_acked_win_rtts = min(0x1F,
-						bbr->extra_acked_win_rtts + 1);
-		if (bbr->extra_acked_win_rtts >= bbr_extra_acked_win_rtts) {
-			bbr->extra_acked_win_rtts = 0;
-			bbr->extra_acked_win_idx = bbr->extra_acked_win_idx ?
-						   0 : 1;
-			bbr->extra_acked[bbr->extra_acked_win_idx] = 0;
-		}
-	}
-
-	/* Compute how many packets we expected to be delivered over epoch. */
-	epoch_us = tcp_stamp_us_delta(tp->delivered_mstamp,
-				      bbr->ack_epoch_mstamp);
-	expected_acked = ((u64)bbr_bw(sk) * epoch_us) / BW_UNIT;
-
-	/* Reset the aggregation epoch if ACK rate is below expected rate or
-	 * significantly large no. of ack received since epoch (potentially
-	 * quite old epoch).
-	 */
-	if (bbr->ack_epoch_acked <= expected_acked ||
-	    (bbr->ack_epoch_acked + rs->acked_sacked >=
-	     bbr_ack_epoch_acked_reset_thresh)) {
-		bbr->ack_epoch_acked = 0;
-		bbr->ack_epoch_mstamp = tp->delivered_mstamp;
-		expected_acked = 0;
-	}
-
-	/* Compute excess data delivered, beyond what was expected. */
-	bbr->ack_epoch_acked = min_t(u32, 0xFFFFF,
-				     bbr->ack_epoch_acked + rs->acked_sacked);
-	extra_acked = bbr->ack_epoch_acked - expected_acked;
-	extra_acked = min(extra_acked, tp->snd_cwnd);
-	if (extra_acked > bbr->extra_acked[bbr->extra_acked_win_idx])
-		bbr->extra_acked[bbr->extra_acked_win_idx] = extra_acked;
-}
 
 /* Estimate when the pipe is full, using the change in delivery rate: BBR
  * estimates that STARTUP filled the pipe if the estimated bw hasn't changed by
@@ -832,20 +772,6 @@ static void bbr_check_drain(struct sock *sk, const struct rate_sample *rs)
 	    tcp_packets_in_flight(tcp_sk(sk)) <=
 	    bbr_target_cwnd(sk, bbr_max_bw(sk), BBR_UNIT))
 		bbr_reset_probe_bw_mode(sk);  /* we estimate queue is drained */
-}
-
-static void bbr_check_probe_rtt_done(struct sock *sk)
-{
-	struct tcp_sock *tp = tcp_sk(sk);
-	struct bbr *bbr = inet_csk_ca(sk);
-
-	if (!(bbr->probe_rtt_done_stamp &&
-	      after(tcp_jiffies32, bbr->probe_rtt_done_stamp)))
-		return;
-
-	bbr->min_rtt_stamp = tcp_jiffies32;  /* wait a while until PROBE_RTT */
-	tp->snd_cwnd = max(tp->snd_cwnd, bbr->prior_cwnd);
-	bbr_reset_mode(sk);
 }
 
 /* The goal of PROBE_RTT mode is to have BBR flows cooperatively and

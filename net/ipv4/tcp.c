@@ -1632,11 +1632,8 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
 		   /* Delayed ACKs frequently hit locked sockets during bulk
 		    * receive. */
 		if (icsk->icsk_ack.blocked ||
-		/* Once-per-sysctl_tcp_delack_seg segments
-		 * ACK was not sent by tcp_input.c
-		 */
-		    tp->rcv_nxt - tp->rcv_wup > (icsk->icsk_ack.rcv_mss) *
-						sysctl_tcp_delack_seg ||
+		    /* Once-per-two-segments ACK was not sent by tcp_input.c */
+		    tp->rcv_nxt - tp->rcv_wup > icsk->icsk_ack.rcv_mss ||
 		    /*
 		     * If this read emptied read buffer, we send ACK, if
 		     * connection is not bidirectional, user drained
@@ -2478,10 +2475,10 @@ int tcp_disconnect(struct sock *sk, int flags)
 	tp->snd_cwnd_cnt = 0;
 	tp->window_clamp = 0;
 	tp->delivered = 0;
-	tp->delivered_ce = 0;
-	if (icsk->icsk_ca_ops->release)
-		icsk->icsk_ca_ops->release(sk);
-	memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
+	//tp->delivered_ce = 0;
+	//if (icsk->icsk_ca_ops->release)
+	//	icsk->icsk_ca_ops->release(sk);
+	//memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
 	tcp_set_ca_state(sk, TCP_CA_Open);
 	tp->is_sack_reneg = 0;
 	tcp_clear_retrans(tp);
