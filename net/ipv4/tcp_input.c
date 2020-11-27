@@ -3312,8 +3312,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
 					     .rtt_us = sack->rate->rtt_us,
 					     .in_flight = last_in_flight };
 
-		sample.in_flight = tp->mss_cache *
-			(tp->delivered - sack->rate->prior_delivered);
+		//sample.in_flight = tp->mss_cache *
+		//	(tp->delivered - sack->rate->prior_delivered);
 		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
 	}
 

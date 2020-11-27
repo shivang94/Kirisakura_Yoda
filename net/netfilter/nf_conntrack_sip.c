@@ -55,6 +55,11 @@ module_param(sip_direct_signalling, int, 0600);
 MODULE_PARM_DESC(sip_direct_signalling, "expect incoming calls from registrar "
 					"only (default 1)");
 
+static int sip_direct_media __read_mostly = 1;
+module_param(sip_direct_media, int, 0600);
+MODULE_PARM_DESC(sip_direct_media, "Expect Media streams between signalling "
+				   "endpoints only (default 1)");
+
 const struct nf_nat_sip_hooks *nf_nat_sip_hooks;
 EXPORT_SYMBOL_GPL(nf_nat_sip_hooks);
 static struct ctl_table_header *sip_sysctl_header;
