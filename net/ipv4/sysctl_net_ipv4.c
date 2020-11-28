@@ -47,10 +47,10 @@ static int tcp_syn_retries_min = 1;
 static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
 static int ip_ping_group_range_min[] = { 0, 0 };
 static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
-static int tcp_delack_seg_min = TCP_DELACK_MIN;
-static int tcp_delack_seg_max = 60;
-static int tcp_use_userconfig_min;
-static int tcp_use_userconfig_max = 1;
+//static int tcp_delack_seg_min = TCP_DELACK_MIN;
+//static int tcp_delack_seg_max = 60;
+//static int tcp_use_userconfig_min;
+//static int tcp_use_userconfig_max = 1;
 static int one_day_secs = 24 * 3600;
 
 /* obsolete */
@@ -925,6 +925,7 @@ static struct ctl_table ipv4_net_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_do_large_bitmap,
 	},
+/*
 	{
 		.procname       = "reserved_port_bind",
 		.data           = &sysctl_reserved_port_bind,
@@ -932,6 +933,7 @@ static struct ctl_table ipv4_net_table[] = {
 		.mode           = 0644,
 		.proc_handler   = proc_dointvec
 	},
+*/
 	{
 		.procname	= "ip_no_pmtu_disc",
 		.data		= &init_net.ipv4.sysctl_ip_no_pmtu_disc,
