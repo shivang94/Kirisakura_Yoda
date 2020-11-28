@@ -151,7 +151,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
 						 */
 
 /* Number of full MSS to receive before Acking RFC2581 */
-#define TCP_DELACK_SEG          1
+//#define TCP_DELACK_SEG          1
 
 #define TCP_RESOURCE_PROBE_INTERVAL ((unsigned)(HZ/2U)) /* Maximal interval between probes
 					                 * for local resources.
@@ -305,13 +305,13 @@ extern int sysctl_tcp_autocorking;
 extern int sysctl_tcp_invalid_ratelimit;
 extern int sysctl_tcp_pacing_ss_ratio;
 extern int sysctl_tcp_pacing_ca_ratio;
-extern int sysctl_tcp_default_init_rwnd;
+//extern int sysctl_tcp_default_init_rwnd;
 
 extern atomic_long_t tcp_memory_allocated;
 
 /* sysctl variables for controlling various tcp parameters */
-extern int sysctl_tcp_delack_seg;
-extern int sysctl_tcp_use_userconfig;
+//extern int sysctl_tcp_delack_seg;
+//extern int sysctl_tcp_use_userconfig;
 
 extern struct percpu_counter tcp_sockets_allocated;
 extern unsigned long tcp_memory_pressure;
@@ -1829,21 +1829,6 @@ static inline void tcp_init_send_head(struct sock *sk)
 
 void tcp_write_queue_purge(struct sock *sk);
 /* write queue abstraction */
-/*imran
-static inline void tcp_write_queue_purge(struct sock *sk)
-{
-	struct sk_buff *skb;
-
-	tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
-	while ((skb = __skb_dequeue(&sk->sk_write_queue)) != NULL)
-		sk_wmem_free_skb(sk, skb);
-	sk_mem_reclaim(sk);
-	tcp_clear_all_retrans_hints(tcp_sk(sk));
-	tcp_init_send_head(sk);
-	tcp_sk(sk)->packets_out = 0;
-	inet_csk(sk)->icsk_backoff = 0;
-}
-*/
 static inline struct sk_buff *tcp_write_queue_head(const struct sock *sk)
 {
 	return skb_peek(&sk->sk_write_queue);

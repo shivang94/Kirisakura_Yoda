@@ -32,25 +32,7 @@
  * was some moment during the sampled window of packets when there was no data
  * ready to send in the write queue.
  */
-/*imran
-void tcp_set_tx_in_flight(struct sock *sk, struct sk_buff *skb)
-{
-	struct tcp_sock *tp = tcp_sk(sk);
-	u32 in_flight;
-/*
-	/* Check, sanitize, and record packets in flight after skb was sent. */
-/*	in_flight = tcp_packets_in_flight(tp) + tcp_skb_pcount(skb);
-	if (WARN_ONCE(in_flight > TCPCB_IN_FLIGHT_MAX,
-		      "insane in_flight %u cc %s mss %u "
-		      "cwnd %u pif %u %u %u %u\n",
-		      in_flight, inet_csk(sk)->icsk_ca_ops->name,
-		      tp->mss_cache, tp->snd_cwnd,
-		      tp->packets_out, tp->retrans_out,
-		      tp->sacked_out, tp->lost_out))
-		in_flight = TCPCB_IN_FLIGHT_MAX;
-	TCP_SKB_CB(skb)->tx.in_flight = in_flight;
-}
-*imran/
+
 /* Snapshot the current delivery information in the skb, to generate
  * a rate sample later when the skb is (s)acked in tcp_rate_skb_delivered().
  */
@@ -114,7 +96,7 @@ void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
 
 		/* Find the duration of the "send phase" of this window: */
 		rs->interval_us      = tcp_stamp_us_delta(
-						tp->first_tx_mstamp,
+						skb->skb_mstamp,
 						scb->tx.first_tx_mstamp);
 
 		/* Record send time of most recently ACKed packet: */
@@ -159,9 +141,9 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
 		return;
 	}
 	rs->delivered   = tp->delivered - rs->prior_delivered;
-	rs->lost        = tp->lost - rs->prior_lost;
+	//rs->lost        = tp->lost - rs->prior_lost;
 
-	rs->delivered_ce = tp->delivered_ce - rs->prior_delivered_ce;
+	//rs->delivered_ce = tp->delivered_ce - rs->prior_delivered_ce;
 	/* delivered_ce occupies less than 32 bits in the skb control block */
 	//rs->delivered_ce &= TCPCB_DELIVERED_CE_MASK;
 
