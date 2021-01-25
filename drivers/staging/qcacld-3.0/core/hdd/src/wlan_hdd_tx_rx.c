@@ -1609,6 +1609,7 @@ static void hdd_register_rx_ol(void)
 	if (hdd_ctx->ol_enable == CFG_LRO_ENABLED) {
 		cdp_register_rx_offld_flush_cb(soc, hdd_qdf_lro_flush);
 		hdd_ctx->receive_offload_cb = hdd_lro_rx;
+		printk("IK LRO enabled");
 		hdd_debug("LRO is enabled");
 	} else if (hdd_ctx->ol_enable == CFG_GRO_ENABLED) {
 		if (hdd_ctx->enable_rxthread)
@@ -1618,8 +1619,10 @@ static void hdd_register_rx_ol(void)
 			cdp_register_rx_offld_flush_cb(soc,
 						       hdd_hif_napi_gro_flush);
 		hdd_ctx->receive_offload_cb = hdd_gro_rx;
+		printk("IK GRO is enabled");
 		hdd_debug("GRO is enabled");
 	} else if (HDD_MSM_CFG(hdd_ctx->config->enable_tcp_delack)) {
+		printk("IK HDD_MSM_CFG");
 		hdd_ctx->en_tcp_delack_no_lro = 1;
 	}
 }
@@ -1713,14 +1716,28 @@ void hdd_disable_rx_ol_for_low_tput(struct hdd_context *hdd_ctx, bool disable)
 static bool hdd_can_handle_receive_offload(struct hdd_context *hdd_ctx,
 					   struct sk_buff *skb)
 {
-	if (!hdd_ctx->receive_offload_cb)
+	if (!hdd_ctx->receive_offload_cb) {
+		printk("IK if (!hdd_ctx->receive_offload_cb)");
 		return false;
+	}
 
+	return true;
+
+	if (!QDF_NBUF_CB_RX_TCP_PROTO(skb))
+		printk("IK IF 1");
+	if (qdf_atomic_read(&hdd_ctx->disable_lro_in_concurrency))
+		printk("IK IF 2");
+	if (QDF_NBUF_CB_RX_PEER_CACHED_FRM(skb))
+		printk("IK IF 3");
+	if ( qdf_atomic_read(&hdd_ctx->disable_lro_in_low_tput))
+		printk("IK IF 4");
 	if (!QDF_NBUF_CB_RX_TCP_PROTO(skb) ||
 	    qdf_atomic_read(&hdd_ctx->disable_lro_in_concurrency) ||
 	    QDF_NBUF_CB_RX_PEER_CACHED_FRM(skb) ||
-	    qdf_atomic_read(&hdd_ctx->disable_lro_in_low_tput))
+	    qdf_atomic_read(&hdd_ctx->disable_lro_in_low_tput)) {
+		printk("IK 4 ifs");
 		return false;
+	}
 	else
 		return true;
 }
@@ -1803,7 +1820,8 @@ QDF_STATUS hdd_rx_packet_cbk(void *context, qdf_nbuf_t rxBuf)
 	uint8_t pkt_type = 0;
 	bool track_arp = false;
 	struct wlan_objmgr_vdev *vdev;
-
+	
+	printk("IK in hdd_rx_packet_cbk");
 	/* Sanity check on inputs */
 	if (unlikely((NULL == context) || (NULL == rxBuf))) {
 		QDF_TRACE(QDF_MODULE_ID_HDD_DATA, QDF_TRACE_LEVEL_ERROR,
@@ -1937,10 +1955,13 @@ QDF_STATUS hdd_rx_packet_cbk(void *context, qdf_nbuf_t rxBuf)
 
 		hdd_tsf_timestamp_rx(hdd_ctx, skb, ktime_to_us(skb->tstamp));
 
-		if (hdd_can_handle_receive_offload(hdd_ctx, skb))
+		if (hdd_can_handle_receive_offload(hdd_ctx, skb)) {
 			rx_ol_status = hdd_ctx->receive_offload_cb(adapter,
-								   skb);
-
+					skb);
+			printk("IK Inside Loop hdd_can_handle true");
+		}
+		else 
+			printk("IK Cant handle FALSE");
 		if (rx_ol_status != QDF_STATUS_SUCCESS) {
 			/* we should optimize this per packet check, unlikely */
 			/* Account for GRO/LRO ineligible packets, mostly UDP */

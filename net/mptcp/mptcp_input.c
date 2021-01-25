@@ -947,7 +947,7 @@ static int mptcp_queue_skb(struct sock *sk)
 	/* Verify the checksum */
 	if (mpcb->dss_csum && !mpcb->infinite_mapping_rcv) {
 		int ret = mptcp_verif_dss_csum(sk);
-
+		printk("IK SHould not enter");
 		if (ret <= 0) {
 			mptcp_reset_mapping(tp, old_copied_seq);
 			return 1;
@@ -1662,6 +1662,7 @@ void mptcp_parse_options(const uint8_t *ptr, int opsize,
 
 		mopt->saw_mpc = 1;
 		mopt->dss_csum = sysctl_mptcp_checksum || mpcapable->a;
+		printk("DSS_CSUM %u",mopt->dss_csum );
 
 		if (opsize >= MPTCP_SUB_LEN_CAPABLE_SYN)
 			mopt->mptcp_sender_key = mpcapable->sender_key;

@@ -4843,7 +4843,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff 
 	int same_flow;
 	enum gro_result ret;
 	int grow;
-
+	//printk("IK DEV GRO receive");
 	if (netif_elide_gro(skb->dev))
 		goto normal;
 
@@ -5015,7 +5015,8 @@ gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
 	trace_napi_gro_receive_entry(skb);
 
 	skb_gro_reset_offset(skb);
-
+	//printk("IK CALLED from napi_gro_receive");
+	//dump_stack();
 	return napi_skb_finish(dev_gro_receive(napi, skb), skb);
 }
 EXPORT_SYMBOL(napi_gro_receive);
@@ -5140,7 +5141,8 @@ gro_result_t napi_gro_frags(struct napi_struct *napi)
 		return GRO_DROP;
 
 	trace_napi_gro_frags_entry(skb);
-
+	//printk("IK Called from napi_gro_frags");
+        //dump_stack();
 	return napi_frags_finish(napi, skb, dev_gro_receive(napi, skb));
 }
 EXPORT_SYMBOL(napi_gro_frags);
@@ -7411,7 +7413,9 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
 		 * checksum verified by hardware.  If the user does not
 		 * want to enable RXCSUM, logically, we should disable GRO_HW.
 		 */
+		printk("IK INSIDE NETIF_RXCSUM");
 		if (features & NETIF_F_GRO_HW) {
+		printk("IK INSIDE NETIF_RXCSUM_2");	
 			netdev_dbg(dev, "Dropping NETIF_F_GRO_HW since no RXCSUM feature.\n");
 			features &= ~NETIF_F_GRO_HW;
 		}
