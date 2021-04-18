@@ -213,6 +213,8 @@ struct mptcp_tw {
 	   in_list:1;
 };
 
+#define MPTCP_SET_BACKUP_MAX 16
+
 #define MPTCP_PM_NAME_MAX 16
 struct mptcp_pm_ops {
 	struct list_head list;

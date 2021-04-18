@@ -58,6 +58,7 @@
 #include <linux/workqueue.h>
 #include <linux/atomic.h>
 #include <linux/sysctl.h>
+#include <linux/inet.h>
 
 static struct kmem_cache *mptcp_sock_cache __read_mostly;
 static struct kmem_cache *mptcp_cb_cache __read_mostly;
@@ -116,6 +117,82 @@ static int proc_mptcp_scheduler(struct ctl_table *ctl, int write,
 	return ret;
 }
 
+static int proc_mptcp_set_backup(struct ctl_table *ctl, int write,
+				void __user *buffer, size_t *lenp,
+				loff_t *ppos)
+{
+	char val[MPTCP_SET_BACKUP_MAX];
+	struct ctl_table tbl = {
+		.data = val,
+		.maxlen = MPTCP_SET_BACKUP_MAX,
+	};
+	int ret;
+
+	ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
+
+	if (write && ret == 0) {
+		struct tcp_sock *meta_tp;
+		int i;
+
+		for (i = 0; i < MPTCP_HASH_SIZE; i++) {
+			struct hlist_nulls_node *node;
+			rcu_read_lock_bh();
+			hlist_nulls_for_each_entry_rcu(meta_tp, node,
+						       &tk_hashtable[i], tk_table) {
+				struct sock *sk_it;
+				struct mptcp_cb *mpcb = meta_tp->mpcb;
+				int iter;
+
+				if (!mptcp(meta_tp))
+					continue;
+
+				if (!mpcb)
+					continue;
+
+			    iter = 0;
+			    mptcp_for_each_sk(mpcb, sk_it) {
+				struct tcp_sock *tp_it = tcp_sk(sk_it);
+				const struct inet_sock *inet = inet_sk(sk_it);
+				struct net *net;
+				struct net_device *dev;
+							
+				if (inet) {
+					net = sock_net(sk_it);
+					if (net) {
+						if (!strcmp(val, "0")) {
+							if (tp_it->mptcp->low_prio) {
+								rtnl_lock();
+								//printk("unset\n");
+								dev = __ip_dev_find(net, inet->inet_saddr, false);
+								printk("%s unset as backup\n", dev->name);
+								dev_change_flags(dev, dev->flags & ~IFF_MPBACKUP);
+								rtnl_unlock();
+							}
+						}
+						else {
+							if (inet->inet_saddr == in_aton(val)) {
+								if (!tp_it->mptcp->low_prio) {
+									rtnl_lock();
+									//printk("set\n");
+									dev = __ip_dev_find(net, inet->inet_saddr, false);
+									printk("%s set as backup\n", dev->name);
+									dev_change_flags(dev, dev->flags | IFF_MPBACKUP);
+									rtnl_unlock();
+									break;
+								}
+							}
+						}
+					}	
+				    }
+				}
+			}
+		}
+	}
+
+	return ret;
+
+}
+
 static struct ctl_table mptcp_table[] = {
 	{
 		.procname = "mptcp_enabled",
@@ -165,6 +242,12 @@ static struct ctl_table mptcp_table[] = {
 		.mode		= 0644,
 		.maxlen		= MPTCP_SCHED_NAME_MAX,
 		.proc_handler	= proc_mptcp_scheduler,
+	},
+	{
+		.procname	= "mptcp_set_backup",
+		.mode		= 0644,
+		.maxlen		= MPTCP_SET_BACKUP_MAX,
+		.proc_handler	= proc_mptcp_set_backup,
 	},
 	{ }
 };
