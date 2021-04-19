@@ -6833,7 +6833,7 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
 
 	dev->flags = (flags & (IFF_DEBUG | IFF_NOTRAILERS | IFF_NOARP |
 			       IFF_DYNAMIC | IFF_MULTICAST | IFF_PORTSEL |
-			       IFF_AUTOMEDIA | IFF_NOMULTIPATH | IFF_MPBACKUP)) |
+			       IFF_AUTOMEDIA)) |
 		     (dev->flags & (IFF_UP | IFF_VOLATILE | IFF_PROMISC |
 				    IFF_ALLMULTI));
 
@@ -6920,7 +6920,6 @@ void __dev_notify_flags(struct net_device *dev, unsigned int old_flags,
  */
 int dev_change_flags(struct net_device *dev, unsigned int flags)
 {
-	printk("Entered device change flags!");
 	int ret;
 	unsigned int changes, old_flags = dev->flags, old_gflags = dev->gflags;
 

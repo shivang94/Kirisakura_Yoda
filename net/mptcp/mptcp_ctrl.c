@@ -121,7 +121,7 @@ static int proc_mptcp_set_backup(struct ctl_table *ctl, int write,
 				void __user *buffer, size_t *lenp,
 				loff_t *ppos)
 {
-	char val[MPTCP_SET_BACKUP_MAX];
+	char val[MPTCP_SET_BACKUP_MAX]="Default";
 	struct ctl_table tbl = {
 		.data = val,
 		.maxlen = MPTCP_SET_BACKUP_MAX,
@@ -155,14 +155,16 @@ static int proc_mptcp_set_backup(struct ctl_table *ctl, int write,
 				const struct inet_sock *inet = inet_sk(sk_it);
 				struct net *net;
 				struct net_device *dev;
-							
+			        printk("Reached Point2\n");				
 				if (inet) {
+					printk("Reached Point3\n");
 					net = sock_net(sk_it);
 					if (net) {
+						printk("Value is %s\n", val);
 						if (!strcmp(val, "0")) {
 							if (tp_it->mptcp->low_prio) {
 								rtnl_lock();
-								//printk("unset\n");
+								printk("Point 6\n");
 								dev = __ip_dev_find(net, inet->inet_saddr, false);
 								printk("%s unset as backup\n", dev->name);
 								dev_change_flags(dev, dev->flags & ~IFF_MPBACKUP);
@@ -173,7 +175,7 @@ static int proc_mptcp_set_backup(struct ctl_table *ctl, int write,
 							if (inet->inet_saddr == in_aton(val)) {
 								if (!tp_it->mptcp->low_prio) {
 									rtnl_lock();
-									//printk("set\n");
+									printk("Point 5\n");
 									dev = __ip_dev_find(net, inet->inet_saddr, false);
 									printk("%s set as backup\n", dev->name);
 									dev_change_flags(dev, dev->flags | IFF_MPBACKUP);
@@ -186,6 +188,7 @@ static int proc_mptcp_set_backup(struct ctl_table *ctl, int write,
 				    }
 				}
 			}
+			rcu_read_unlock_bh();
 		}
 	}
 
