@@ -272,6 +272,7 @@ enum qca_nl80211_vendor_subcmds {
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SECTOR_CFG = 140,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SELECTED_SECTOR = 141,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SELECTED_SECTOR = 142,
+	QCA_NL80211_VENDOR_SUBCMD_GET_AOA_MEASUREMENTS = 147,
 	QCA_NL80211_VENDOR_SUBCMD_BRP_SET_ANT_LIMIT = 153,
 };
 
@@ -292,6 +293,12 @@ static int wil_brp_set_ant_limit(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
 				 const void *data, int data_len);
+
+// AoA Measurements
+static int wil_get_aoa_measurements(struct wiphy *wiphy,
+                                    struct wireless_dev *wdev,
+                                    const void *data, int data_len);
+
 /* vendor specific commands */
 static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 	{
@@ -380,6 +387,13 @@ static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 			 WIPHY_VENDOR_CMD_NEED_NETDEV,
 		.doit = wil_nl_60g_handle_cmd
 	},
+	{
+        	.info.vendor_id = QCA_NL80211_VENDOR_ID,
+        	.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_GET_AOA_MEASUREMENTS,
+        	.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+             		 WIPHY_VENDOR_CMD_NEED_RUNNING,
+        	.doit = wil_get_aoa_measurements
+    	},
 };
 
 /* vendor specific events */
@@ -3711,4 +3725,101 @@ void wil_nl_60g_receive_wmi_evt(struct wil6210_priv *wil, u8 *cmd, int len)
 
 out:
 	kfree(evt);
+}
+
+static int wil_get_aoa_measurements(struct wiphy *wiphy,
+                                    struct wireless_dev *wdev,
+                                    const void *data, int data_len)
+{
+    struct wil6210_priv *wil = wdev_to_wil(wdev);
+	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
+
+
+	// Check the event queue
+	/*struct pending_wmi_event *evt, *t;
+	u8 queued_events;
+	queued_events = 0;
+
+	list_for_each_entry_safe(evt, t, &wil->pending_wmi_ev, list) {
+
+		queued_events++;
+	}
+
+	printk(KERN_CONT "Events pending: %d\n", queued_events);
+	*/
+
+    int rc;
+    u8 i;
+    u16 value;
+    u8 *new_data = (u8 *) data;
+    u8 channel, aoa_meas_type;
+    u32 meas_rf_mask;
+    struct wmi_aoa_meas_cmd cmd;
+    struct {
+        struct wmi_cmd_hdr wmi;
+        struct wmi_aoa_meas_event evt;
+    } __packed reply;
+    struct timeval tv;
+    u8 *meas_data;
+
+    memset(&cmd, 0, sizeof(cmd));
+
+    memcpy(&channel, new_data, sizeof(u8));
+    new_data += sizeof(u8);
+
+    memcpy(&aoa_meas_type, new_data, sizeof(u8));
+    new_data += sizeof(u8);
+
+    memcpy(&meas_rf_mask, new_data, sizeof(u32));
+    new_data += sizeof(u32);
+
+    ether_addr_copy(cmd.mac_addr, new_data);
+
+    cmd.channel = channel;
+    cmd.aoa_meas_type = aoa_meas_type;
+    cmd.meas_rf_mask = cpu_to_le32(meas_rf_mask);
+
+    memset(&reply, 0, sizeof(reply));
+    rc = wmi_call(wil, WMI_AOA_MEAS_CMDID, vif->mid,
+                  &cmd, sizeof(cmd),
+                  WMI_AOA_MEAS_EVENTID,
+                  &reply, sizeof(reply),
+                  500);
+
+    do_gettimeofday(&tv);
+    printk(KERN_INFO "wil6210-aoa$%d,%ld.%06ld,%pM,%u,%u,%d,%u,%u",
+            rc,
+            tv.tv_sec, tv.tv_usec,
+            reply.evt.mac_addr,
+            reply.evt.channel,
+            reply.evt.aoa_meas_type,
+            reply.evt.meas_rf_mask,
+            reply.evt.meas_status,
+            reply.evt.length);
+
+    meas_data = reply.evt.meas_data;
+
+    if (reply.evt.length > 0)
+    {
+        // Print phase information
+        for (i = 0 ; i < 32; i++)
+        {
+            memcpy(&value, meas_data, sizeof(u16));
+            meas_data = meas_data + 2;
+            printk(KERN_CONT ",%d", value);
+        }
+        // Print amplitude information
+        if (reply.evt.aoa_meas_type == WMI_AOA_PHASE_AMP_MEAS)
+        {
+            for (i = 0 ; i < 32; i++)
+            {
+                memcpy(&value, meas_data, sizeof(u16));
+                meas_data = meas_data + 2;
+                printk(KERN_CONT ",%d", value);
+            }
+       }
+   }
+   printk(KERN_CONT "\n");
+
+   return rc;
 }

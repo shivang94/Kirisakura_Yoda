@@ -32,7 +32,7 @@ typedef struct {
 } sweep_dump_t;
 
 #define PTR_MEM_SWEEP_CUR_FEEDBACK 0x93D000
-#define PTR_MEM_SWEEP_DUMP 0x93D018
+#define PTR_MEM_SWEEP_DUMP 0x93F018
 // ---------------------------------------------------------------------------
 // Used only by firmware
 // ---------------------------------------------------------------------------

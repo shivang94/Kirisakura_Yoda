@@ -3374,10 +3374,11 @@ static void wmi_event_handle(struct wil6210_priv *wil,
 		}
 		/* unsolicited event */
 		/* search for handler */
-		if (!wmi_evt_call_handler(vif, id, evt_data,
+		wmi_evt_call_handler(vif, id, evt_data, len - sizeof(*wmi));
+		/*if (!wmi_evt_call_handler(vif, id, evt_data,
 					  len - sizeof(*wmi))) {
 			wil_info(wil, "Unhandled event 0x%04x\n", id);
-		}
+		}*/
 	} else {
 		wil_err(wil, "Unknown event type\n");
 		print_hex_dump(KERN_ERR, "evt?? ", DUMP_PREFIX_OFFSET, 16, 1,

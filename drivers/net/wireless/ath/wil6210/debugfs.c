@@ -63,7 +63,7 @@ u8 my_console_uc[MY_CONSOLE_MAX_LEN];
 u32 my_console_fw_len;
 u32 my_console_uc_len;
 #define MY_CONSOLE_BASE_PTR_FW 0x8ffff0
-#define MY_CONSOLE_BASE_PTR_UC 0x93cff0
+#define MY_CONSOLE_BASE_PTR_UC 0x93CC8f
 
 struct wil6210_priv *my_glob_wil = NULL;
 // END SEEMOO ADDITIONS
