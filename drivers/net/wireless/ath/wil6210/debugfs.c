@@ -27,6 +27,8 @@
 #include "pmc.h"
 #include "sweep_info.h" //SEEMO
 
+// IMDEA patch for overwriting the brd on memory
+#include "set_rx_bp_info.h"
 
 /* Nasty hack. Better have per device instances */
 static u32 mem_addr;
@@ -2586,6 +2588,94 @@ static const struct file_operations fops_sweep_dump = {
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 };
+
+
+/*---------BRD set rx memory---------*/
+// Basic instructions:
+//
+//		This creates a new debug file in /sys/kernel/debug/ieee80211/phyX/wil6210/ called set_rx_bp
+//
+//		If you read from it (e.g. cat set_rx_bp), you get the current Rx BP (Note that for it to display the correct Rx BP
+//      the interface has to be up so that it loads the firmware + brd)
+//
+//		If you write to it (e.g. echo -n "0xf0f0f0f0 0xf0f0f0f0 0xf0f0f0f0 0xf0f0f0f0 0xf0f0f0f0 0xf0f0f0f0" > set_rx_bp)
+//      you set the current Rx BP
+//
+static ssize_t set_rx_bp_memory_write(struct file *file, const char __user *buf,
+				size_t len, loff_t *ppos)
+{
+	int rc;
+	char *kbuf = kmalloc(len + 1, GFP_KERNEL);
+	u32 new_rx_bp[6];
+
+	if (!kbuf)
+		return -ENOMEM;
+
+	rc = simple_write_to_buffer(kbuf, len, ppos, buf, len);
+	if (rc != len) {
+		printk(KERN_CRIT "Error on the new function rc: %d, len: %d\n", rc, len);
+
+		kfree(kbuf);
+		return rc >= 0 ? -EIO : rc;
+	}
+
+	kbuf[len] = '\0';
+
+	printk(KERN_CRIT "Raw data is %s\n", kbuf);
+
+	rc = sscanf(kbuf, "%lx %lx %lx %lx %lx %lx", &new_rx_bp[0], &new_rx_bp[1], &new_rx_bp[2], &new_rx_bp[3], &new_rx_bp[4], &new_rx_bp[5]);
+
+	printk(KERN_CRIT "The new Rx BP is %08x %08x %08x %08x %08x %08x\n", new_rx_bp[0], new_rx_bp[1], new_rx_bp[2], new_rx_bp[3], new_rx_bp[4], new_rx_bp[5]);
+
+	kfree(kbuf);
+
+	// Copy the new BP to memory
+	wil_memcpy_toio_32((void * __force)my_glob_wil->csr + HOSTADDR(PTR_MEM_RX_BP), (void *) &new_rx_bp, sizeof(new_rx_bp));
+
+	return len;
+}
+
+static int
+set_rx_bp_show(struct seq_file *s, void *data) {
+
+	if(my_glob_wil != NULL) {
+
+		if(test_bit(WMI_FW_CAPABILITY_MOD_FW, my_glob_wil->fw_capabilities)) {
+
+			u32 cur_rx_bp[6];
+
+			// Copy the current Rx BP from memory
+			wil_memcpy_fromio_32((void *) &cur_rx_bp, (void * __force)my_glob_wil->csr + HOSTADDR(PTR_MEM_RX_BP), sizeof(cur_rx_bp));
+
+			seq_printf(s, "This only works if the interface is up!\n");
+			seq_printf(s, "The cur Rx BP is %08x %08x %08x %08x %08x %08x\n", cur_rx_bp[0], cur_rx_bp[1], cur_rx_bp[2], cur_rx_bp[3], cur_rx_bp[4], cur_rx_bp[5]);
+
+		} else {
+
+			return -1;
+		}
+
+	} else {
+		return -1;
+	}
+
+	return 0;
+}
+
+static int
+set_rx_bp_open(struct inode *inode, struct file *file) {
+    return single_open(file, set_rx_bp_show, inode->i_private);
+}
+
+
+static const struct file_operations fops_set_rx_bp = {
+	.open      	= set_rx_bp_open,
+	.release	= single_release,
+	.write		= set_rx_bp_memory_write,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+};
+
 static int
 sweep_dump_cur_show(struct seq_file *s, void *data) {
         u32 i, p, j;
@@ -2998,6 +3088,7 @@ static const struct {
 	{"console_dump_uc",     0444,   &fops_console_dump_uc}, //imran
 	{"sweep_dump", 		0444,   &fops_sweep_dump},			//imran
 	{"sweep_dump_cur", 	0444,   &fops_sweep_dump_cur},		//imran
+	{"set_rx_bp", 	0444,   &fops_set_rx_bp},
 	{"compressed_rx_status", 0644,	&fops_compressed_rx_status},
 	{"srings",	0444,		&fops_srings},
 	{"status_msg",	0444,		&fops_status_msg},
