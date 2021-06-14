@@ -40,7 +40,8 @@ static bool mptcp_is_temp_unavailable(struct sock *sk,
 				      const struct sk_buff *skb,
 				      bool zero_wnd_test)
 {
-	const struct tcp_sock *tp = tcp_sk(sk);
+	//const struct tcp_sock *tp = tcp_sk(sk);
+	struct tcp_sock *tp = tcp_sk(sk);
 	unsigned int mss_now, space, in_flight;
 
 	if (inet_csk(sk)->icsk_ca_state == TCP_CA_Loss) {
@@ -57,7 +58,28 @@ static bool mptcp_is_temp_unavailable(struct sock *sk,
 		else if (tp->snd_una != tp->high_seq)
 			return true;
 	}
+        //moinakgh change for pf
+	struct net *net;
+	struct net_device *dev;
+	struct inet_sock *inet;
+	const struct inet_connection_sock *icsk = inet_csk(sk);
 
+
+	net = sock_net(sk);
+        inet = inet_sk(sk);
+        if(net && inet) {
+                dev = __ip_dev_find(net, inet->inet_saddr, true);
+                if (dev && dev->operstate==6 && tp->pf) {
+                        tp->pf = 0;
+                        tp->snd_cwnd = icsk->icsk_ca_ops->undo_cwnd(sk);
+                        if (tp->prior_ssthresh > tp->snd_ssthresh)
+                                tp->snd_ssthresh = tp->prior_ssthresh;
+                        tcp_set_ca_state(sk, TCP_CA_Recovery);
+                        tp->ops->write_wakeup(sk, LINUX_MIB_TCPKEEPALIVE);
+                        printk("[Moinak]name: %s operstate: %ul state: %lu flags: %ul\n", dev->name, dev->operstate, dev->state, dev->flags);
+                }
+        }
+	//moinakgh change end
 	if (!tp->mptcp->fully_established) {
 		/* Make sure that we send in-order data */
 		if (skb && tp->mptcp->second_packet &&
